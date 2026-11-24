@@ -1,0 +1,186 @@
+{
+  "updated_at": "2026-11-24T19:44:22+09:00",
+  "source_mode": "live_and_curated",
+  "items": [
+    {
+      "id": "JVNDB-2026-044605",
+      "cve_id": "CVE-2026-90436",
+      "title": "Apache Axis における脆弱性（CVE-2026-90436）",
+      "category": "Java",
+      "severity": "critical",
+      "severity_label": "緊急",
+      "cvss_score": 9.8,
+      "published_date": "2026-11-24",
+      "affected_versions": "Apache Axis（1.4 系など）",
+      "summary_3lines": [
+        "Apache Axis に対して外部から不正なデータやリクエストを送ることで、サーバー上で任意のプログラムを実行されたり処理が強制停止したりする恐れがあります。",
+        "社内の業務システムやWebアプリ基盤で Apache Axis を稼働させている場合、該当バージョンを使用していると影響を受けます。",
+        "深刻度が極めて高く（CVSS 9.8）、放置すると任意のコード実行・システム乗っ取りにより大規模な業務停止や情報漏洩に直結するため、最優先での確認・対処が必要です。"
+      ],
+      "recommended_action": "直ちに稼働中の Apache Axis のバージョンを確認し、開発元が提供する修正済みバージョンへの緊急アップデート（困難な場合はWAFやアクセス制限等の暫定回避策）を実施してください。",
+      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html"
+    },
+    {
+      "id": "JVNDB-2026-044541",
+      "cve_id": "CVE-2026-97205",
+      "title": "F5 NetworksのDoS等の複数製品における解放済みメモリの使用に関する脆弱性",
+      "category": "Middleware",
+      "severity": "critical",
+      "severity_label": "緊急",
+      "cvss_score": 9.8,
+      "published_date": "2026-11-24",
+      "affected_versions": "NGINX のサポート対象バージョン（詳細はJVNDBページを参照）",
+      "summary_3lines": [
+        "NGINX に対して外部から不正なデータやリクエストを送ることで、サーバー上で任意のプログラムを実行されたり処理が強制停止したりする恐れがあります。",
+        "Webサーバーやリバースプロキシ、暗号化通信基盤として NGINX をインターネット公開サーバー等で利用している企業は影響を受けます。",
+        "深刻度が極めて高く（CVSS 9.8）、放置すると任意のコード実行・システム乗っ取りにより大規模な業務停止や情報漏洩に直結するため、最優先での確認・対処が必要です。"
+      ],
+      "recommended_action": "直ちに稼働中の NGINX のバージョンを確認し、開発元が提供する修正済みバージョンへの緊急アップデート（困難な場合はWAFやアクセス制限等の暫定回避策）を実施してください。",
+      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044541.html"
+    },
+    {
+      "id": "JVNDB-2026-044394",
+      "cve_id": "CVE-2026-82384",
+      "title": "Apache Roller における脆弱性（CVE-2026-82384）",
+      "category": "Middleware",
+      "severity": "critical",
+      "severity_label": "緊急",
+      "cvss_score": 9.8,
+      "published_date": "2026-11-24",
+      "affected_versions": "Apache Roller（4.0.0 から 6.1.4 等）",
+      "summary_3lines": [
+        "Apache Roller に対して外部から不正なデータやリクエストを送ることで、サーバー上で任意のプログラムを実行されたり処理が強制停止したりする恐れがあります。",
+        "Webサーバーやリバースプロキシ、暗号化通信基盤として Apache Roller をインターネット公開サーバー等で利用している企業は影響を受けます。",
+        "深刻度が極めて高く（CVSS 9.8）、放置すると任意のコード実行・システム乗っ取りにより大規模な業務停止や情報漏洩に直結するため、最優先での確認・対処が必要です。"
+      ],
+      "recommended_action": "直ちに稼働中の Apache Roller のバージョンを確認し、開発元が提供する修正済みバージョンへの緊急アップデート（困難な場合はWAFやアクセス制限等の暫定回避策）を実施してください。",
+      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044394.html"
+    },
+    {
+      "id": "JVNDB-2026-004101",
+      "cve_id": "CVE-2026-22234",
+      "title": "Spring Framework における認証バイパスおよび認可回避の脆弱性",
+      "category": "Java",
+      "severity": "critical",
+      "severity_label": "緊急",
+      "cvss_score": 9.8,
+      "published_date": "2026-11-24",
+      "affected_versions": "Spring Framework 6.1.0 〜 6.1.14 / 6.2.0 〜 6.2.1（Spring Security併用環境）",
+      "summary_3lines": [
+        "特定のURLパス表記を用いたHTTPリクエストにより、認証・認可チェックをすり抜けて管理画面等へアクセスされる恐れがあります。",
+        "Spring Boot / Spring Framework を用いて社内業務システムや会員向けWebアプリを構築している企業は影響を受けます。",
+        "放置すると未認証の第三者に機密データの閲覧や不正操作を許すため、最優先で影響有無を確認する必要があります。"
+      ],
+      "recommended_action": "pom.xml や build.gradle で利用中の Spring Framework / Spring Boot バージョンを確認し、修正済みの最新パッチ版へ速やかにアップデートしてください。",
+      "source_url": "https://jvndb.jvn.jp/"
+    },
+    {
+      "id": "JVNDB-2026-004055",
+      "cve_id": "CVE-2026-21480",
+      "title": "PHP 8.2 / 8.3 系におけるHTTPリクエスト処理の任意コード実行",
+      "category": "PHP",
+      "severity": "critical",
+      "severity_label": "緊急",
+      "cvss_score": 9.1,
+      "published_date": "2026-11-24",
+      "affected_versions": "PHP 8.2.0 〜 8.2.26 / 8.3.0 〜 8.3.14",
+      "summary_3lines": [
+        "外部からの細工されたHTTPリクエストを処理する際、メモリ破損を通じてWebサーバー上で任意のコードを実行される恐れがあります。",
+        "インターネットに公開されている問い合わせフォーム、ECサイト、CMS等をPHPで運用している企業は影響を受けます。",
+        "放置すると顧客情報の漏洩やWebサイトの改ざん・踏み台化に直結するため、緊急のバージョン確認が必要です。"
+      ],
+      "recommended_action": "利用中のPHPバージョンを確認し、最新の修正済みマイナーバージョン（8.2.27以降 / 8.3.15以降）へのアップデートを最優先で計画してください。",
+      "source_url": "https://jvndb.jvn.jp/"
+    },
+    {
+      "id": "JVNDB-2026-044505",
+      "cve_id": "CVE-2026-124467",
+      "title": "OpenEMRにおけるパストラバーサルの脆弱性",
+      "category": "PHP",
+      "severity": "high",
+      "severity_label": "重要",
+      "cvss_score": 8.8,
+      "published_date": "2026-11-24",
+      "affected_versions": "OpenEMR（8.4.0より前 等）",
+      "summary_3lines": [
+        "OpenEMR に対して外部から不正なデータやリクエストを送ることで、サーバー上で任意のプログラムを実行されたり処理が強制停止したりする恐れがあります。",
+        "Webサイトや問い合わせフォーム、業務Webアプリを OpenEMR で運用している場合、修正前のバージョンが稼働していると影響対象となります。",
+        "深刻度が高く（CVSS 8.8）、放置すると任意のコード実行・システム乗っ取りにつながるリスクがあるため、計画を前倒しして早急にバージョン確認を行う必要があります。"
+      ],
+      "recommended_action": "利用中の OpenEMR のバージョンと設定構成を確認し、テスト環境での動作確認のうえ最新のセキュリティ修正版へのアップデートを速やかに計画してください。",
+      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044505.html"
+    },
+    {
+      "id": "JVNDB-2026-003812",
+      "cve_id": "CVE-2026-20941",
+      "title": "Oracle Java SE / OpenJDK におけるリモートコード実行の脆弱性",
+      "category": "Java",
+      "severity": "high",
+      "severity_label": "重要",
+      "cvss_score": 8.1,
+      "published_date": "2026-11-24",
+      "affected_versions": "Java SE / OpenJDK 17.0.12以前 / 21.0.4以前",
+      "summary_3lines": [
+        "外部から受け取ったシリアライズデータや特定形式のネットワーク通信を処理する際、不正なコードが実行される恐れがあります。",
+        "基幹業務サーバーやバッチ処理サーバーで OpenJDK / Oracle JDK の長期サポート版（17 / 21系）を稼働させている企業に影響します。",
+        "悪用されるとサーバー内の業務データ窃取やマルウェア感染につながるため、早急なパッチ適用が求められます。"
+      ],
+      "recommended_action": "サーバー上で `java -version` を実行して現在のビルド番号を確認し、最新の四半期セキュリティアップデート（CPU）を適用してください。",
+      "source_url": "https://jvndb.jvn.jp/"
+    },
+    {
+      "id": "JVNDB-2026-003720",
+      "cve_id": "CVE-2026-18411",
+      "title": "PHP 8.1 系セキュリティサポート終了に伴う未修正脆弱性リスクと移行案内",
+      "category": "PHP",
+      "severity": "high",
+      "severity_label": "重要",
+      "cvss_score": 7.5,
+      "published_date": "2026-11-24",
+      "affected_versions": "PHP 8.1.x 全バージョン（公式セキュリティサポート終了済み）",
+      "summary_3lines": [
+        "PHP 8.1系は公式のセキュリティアップデート提供期間を終了しており、今後発見される脆弱性に対する修正パッチが配布されません。",
+        "レンタルサーバーや自社Webサーバーで PHP 8.1 以前のバージョンを継続利用しているWebサイト・業務システムが該当します。",
+        "既知の脆弱性が放置された状態となりサイバー攻撃の標的になりやすいため、サポート中の 8.3 / 8.4 系への移行が必要です。"
+      ],
+      "recommended_action": "テスト環境でPHP 8.3系または8.4系での動作確認を実施し、互換性対応のうえで本番環境のPHPバージョンアップを計画してください。",
+      "source_url": "https://www.php.net/supported-versions.php"
+    },
+    {
+      "id": "JVNDB-2026-003490",
+      "cve_id": "CVE-2026-19802",
+      "title": "Apache Tomcat におけるリクエスト処理時のパストラバーサル（情報漏洩）",
+      "category": "Java",
+      "severity": "medium",
+      "severity_label": "注意",
+      "cvss_score": 6.5,
+      "published_date": "2026-11-24",
+      "affected_versions": "Apache Tomcat 10.1.0 〜 10.1.33 / 9.0.0 〜 9.0.97",
+      "summary_3lines": [
+        "特定の設定を有効にしている環境において、細工されたURLを通じて非公開の設定ファイル等が読み取られる恐れがあります。",
+        "Java製Webアプリのアプリケーションサーバーとして Apache Tomcat を標準設定に近い状態で運用している場合に対象となります。",
+        "直ちにサーバーが乗っ取られるわけではありませんが、設定ファイル内の接続情報漏洩を防ぐため計画的な更新が推奨されます。"
+      ],
+      "recommended_action": "Tomcat のバージョンおよび server.xml の公開設定を確認し、次回のメンテナンス時に修正済みマイナーバージョンへ更新してください。",
+      "source_url": "https://jvndb.jvn.jp/"
+    },
+    {
+      "id": "JVNDB-2026-044393",
+      "cve_id": "CVE-2026-114938",
+      "title": "OpenJDKにおけるヒープベースのバッファオーバーフローの脆弱性",
+      "category": "Java",
+      "severity": "medium",
+      "severity_label": "注意",
+      "cvss_score": 5.3,
+      "published_date": "2026-11-19",
+      "affected_versions": "OpenJDK / Java のサポート対象バージョン（詳細はJVNDBページを参照）",
+      "summary_3lines": [
+        "OpenJDK / Java のメモリ処理に不備があり、細工された通信を受け取るとプロセスの異常終了（サービス停止）や不正な命令の実行につながる危険があります。",
+        "社内の業務システムやWebアプリ基盤で OpenJDK / Java を稼働させている場合、該当バージョンを使用していると影響を受けます。",
+        "直ちに全面的な被害へ直結する可能性は中程度ですが（CVSS 5.3）、他の不備と組み合わさるとサービス停止やメモリ破損を招くため、定期メンテナンス等での対応が推奨されます。"
+      ],
+      "recommended_action": "運用中の OpenJDK / Java が該当条件に当てはまるか確認し、次回の定期パッチ適用タイミングに合わせて修正済みバージョンへの更新を検討してください。",
+      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044393.html"
+    }
+  ]
+}
