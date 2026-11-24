@@ -32,7 +32,7 @@ def test_parse_jvn_xml_basic_item(fv):
     assert item["source_url"] == "https://nvd.nist.gov/vuln/detail/CVE-2026-11111"
 
 
-def test_parse_jvn_xml_jvn_link_without_cve_falls_back_to_ipa(fv):
+def test_parse_jvn_xml_jvndb_link_without_cve_falls_back_to_jvn(fv):
     xml = build_rdf(
         rdf_item(
             link="https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-000099.html",
@@ -41,7 +41,42 @@ def test_parse_jvn_xml_jvn_link_without_cve_falls_back_to_ipa(fv):
     )
     item = fv.parse_jvn_xml(xml, FALLBACK_DATE)[0]
     assert item["cve_id"] == "N/A"
-    assert item["source_url"] == "https://www.ipa.go.jp/security/"
+    assert item["source_url"] == "https://jvn.jp/"
+
+
+def test_parse_jvn_xml_supports_jvn_portal_rss_format(fv):
+    """jvn.jp/rss/jvn.rdf 形式（dc:identifier / 本文中CVE / jvn.jp個別URL維持）を検証する。"""
+    portal_items = (
+        '<item rdf:about="https://jvn.jp/vu/JVNVU99608534/">'
+        "<title>OpenJDKにおけるヒープベースのバッファオーバーフローの脆弱性</title>"
+        "<link>https://jvn.jp/vu/JVNVU99608534/</link>"
+        "<description>OpenJDKには脆弱性（CVE-2026-114938）が存在します。&lt;br /&gt;詳細は公式を確認してください。</description>"
+        "<dc:identifier>JVNVU#99608534</dc:identifier>"
+        "<dc:date>2026-11-24T12:00:00+09:00</dc:date>"
+        "<dcterms:issued>2026-11-18T09:00:00+09:00</dcterms:issued>"
+        "</item>"
+        '<item rdf:about="https://jvn.jp/jp/JVN12345678/">'
+        "<title>OpenSSLにおけるサービス妨害の脆弱性</title>"
+        "<link>https://jvn.jp/jp/JVN12345678/</link>"
+        "<description>OpenSSL Projectからセキュリティアドバイザリが公開されました。</description>"
+        "<dc:identifier>JVN#12345678</dc:identifier>"
+        "<dc:date>2026-11-22T10:00:00+09:00</dc:date>"
+        "</item>"
+    )
+    items = fv.parse_jvn_xml(build_rdf(portal_items), FALLBACK_DATE)
+    assert len(items) == 2
+
+    assert items[0]["id"] == "JVNVU-99608534"
+    assert items[0]["cve_id"] == "CVE-2026-114938"
+    assert items[0]["category"] == "Java"
+    assert items[0]["published_date"] == "2026-11-18"
+    assert items[0]["source_url"] == "https://jvn.jp/vu/JVNVU99608534/"
+    assert "<br" not in items[0]["raw_description"]
+
+    assert items[1]["id"] == "JVN-12345678"
+    assert items[1]["cve_id"] == "N/A"
+    assert items[1]["category"] == "Middleware"
+    assert items[1]["source_url"] == "https://jvn.jp/jp/JVN12345678/"
 
 
 def test_parse_jvn_xml_filters_non_target_keywords(fv):
@@ -297,9 +332,9 @@ def test_triage_item_sanitizes_malicious_llm_output(fv, monkeypatch):
 # --- 取得ソースの優先順位 ------------------------------------------------------
 
 
-def test_primary_source_is_jvndb_official_rss(fv):
-    assert fv.PRIMARY_JVN_URL == "https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf"
-    assert "myjvn" in fv.SECONDARY_JVN_URL
+def test_primary_source_is_jvn_official_rss(fv):
+    assert fv.PRIMARY_JVN_URL == "https://jvn.jp/rss/jvn.rdf"
+    assert fv.SECONDARY_JVN_URL == "https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf"
 
 
 def test_fetch_live_uses_primary_rss_without_calling_secondary(fv, monkeypatch):

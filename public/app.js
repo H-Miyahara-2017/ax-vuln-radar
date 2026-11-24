@@ -6,7 +6,7 @@
  */
 
 const DATA_URL = "./data/vulnerabilities.json";
-const FALLBACK_SOURCE_URL = "https://www.ipa.go.jp/security/";
+const FALLBACK_SOURCE_URL = "https://jvn.jp/";
 const NVD_DETAIL_BASE_URL = "https://nvd.nist.gov/vuln/detail/";
 const CVE_ID_RE = /^CVE-\d{4}-\d{4,}$/i;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -63,7 +63,7 @@ function isSafeHttpUrl(rawUrl) {
 }
 
 /**
- * 参照URLを正規化し、停止中の jvndb.jvn.jp をNVD個別詳細またはIPAへ変換する
+ * 参照URLを正規化し、停止中の jvndb.jvn.jp をNVD個別詳細または jvn.jp へ変換する
  * @param {unknown} rawUrl
  * @param {unknown} rawCveId
  * @returns {string}

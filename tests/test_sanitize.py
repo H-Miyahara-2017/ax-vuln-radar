@@ -113,12 +113,22 @@ def test_sanitize_http_url_rejects_unsafe(fv, url):
         (
             "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html",
             "N/A",
-            "https://www.ipa.go.jp/security/",
+            "https://jvn.jp/",
         ),
         (
             "https://jvndb.jvn.jp/",
             "INVALID-CVE",
-            "https://www.ipa.go.jp/security/",
+            "https://jvn.jp/",
+        ),
+        (
+            "https://jvn.jp/vu/JVNVU99608534/",
+            "CVE-2026-114938",
+            "https://jvn.jp/vu/JVNVU99608534/",
+        ),
+        (
+            "https://jvn.jp/jp/JVN84156789/",
+            "N/A",
+            "https://jvn.jp/jp/JVN84156789/",
         ),
         (
             "https://www.php.net/supported-versions.php",
@@ -128,7 +138,7 @@ def test_sanitize_http_url_rejects_unsafe(fv, url):
         (
             "javascript:alert(1)",
             "CVE-2026-99999",
-            "https://www.ipa.go.jp/security/",
+            "https://jvn.jp/",
         ),
     ],
 )

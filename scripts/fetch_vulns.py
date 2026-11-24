@@ -27,16 +27,12 @@ OUTPUT_PATH = PROJECT_ROOT / "public" / "data" / "vulnerabilities.json"
 ENV_PATH = PROJECT_ROOT / ".env"
 JST = timezone(timedelta(hours=9))
 
-# JVNDB 取得元URL
-# プライマリ: JVNDB公式新着RSS（RDF）。セカンダリ: MyJVN API（2026-11 時点で HTTP 404 を返すため予備扱い）
-PRIMARY_JVN_LABEL = "JVNDB公式新着RSS"
-PRIMARY_JVN_URL = "https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf"
-SECONDARY_JVN_LABEL = "MyJVN API"
-SECONDARY_JVN_URL = (
-    "https://jvndb.jvn.jp/myjvn"
-    "?method=getVulnOverviewList&feed=hnd"
-    "&rangeDatePublished=n&rangeDateFirstPublished=n"
-)
+# JVN 取得元URL
+# プライマリ: JVN公式RSS（jvn.jp 本体のRDF）。セカンダリ: JVNDB公式新着RSS（jvndb.jvn.jp 停止時の予備）
+PRIMARY_JVN_LABEL = "JVN公式RSS"
+PRIMARY_JVN_URL = "https://jvn.jp/rss/jvn.rdf"
+SECONDARY_JVN_LABEL = "JVNDB公式新着RSS"
+SECONDARY_JVN_URL = "https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf"
 
 # Anthropic モデルID（環境変数 ANTHROPIC_MODEL で上書き可能。未設定・不正値時は現行世代の軽量モデル）
 DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5"
@@ -47,9 +43,8 @@ ANTHROPIC_MAX_TOKENS = 4000
 LLM_FATAL_HTTP_CODES = (400, 401, 403, 404)
 # 上記エラー発生時に1回の実行中のみLLMを無効化するフラグ（理由文字列、空なら有効）
 _llm_disabled_reason = ""
-IPA_FALLBACK_LINK = "https://www.ipa.go.jp/security/"
 NVD_DETAIL_BASE_URL = "https://nvd.nist.gov/vuln/detail/"
-JVN_FALLBACK_LINK = IPA_FALLBACK_LINK
+JVN_FALLBACK_LINK = "https://jvn.jp/"
 
 # XML 名前空間
 XML_NS = {
@@ -99,6 +94,8 @@ CHATWORK_TAG_RE = re.compile(
 )
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
 CVE_ID_RE = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
+CVE_IN_TEXT_RE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.IGNORECASE)
+BR_TAG_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
 DTD_RE = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
 
 
@@ -194,13 +191,13 @@ def sanitize_http_url(url: str | None) -> str:
 
 
 def resolve_source_url(url: Any, cve_id: Any) -> str:
-    """参照URLを正規化し、停止中の jvndb.jvn.jp をNVD個別詳細またはIPAへ変換する。"""
+    """参照URLを正規化し、停止中の jvndb.jvn.jp をNVD個別詳細または jvn.jp へ変換する。"""
     sanitized_url = sanitize_http_url(url if isinstance(url, str) else None)
     if "jvndb.jvn.jp" in sanitized_url.lower():
         normalized_cve = sanitize_cve_id(cve_id)
         if normalized_cve != "N/A":
             return f"{NVD_DETAIL_BASE_URL}{normalized_cve}"
-        return IPA_FALLBACK_LINK
+        return JVN_FALLBACK_LINK
     return sanitized_url
 
 
@@ -333,7 +330,8 @@ def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
 
     for item_el in root.findall("rss:item", XML_NS):
         raw_title = normalize_text(item_el.findtext("rss:title", "", XML_NS))
-        raw_desc = normalize_text(item_el.findtext("rss:description", "", XML_NS))
+        raw_desc_text = BR_TAG_RE.sub(" ", item_el.findtext("rss:description", "", XML_NS) or "")
+        raw_desc = normalize_text(raw_desc_text)
         if not raw_title and not raw_desc:
             continue
 
@@ -351,14 +349,17 @@ def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
         if not matches_target_keywords(searchable_text):
             continue
 
-        # 識別ID（JVNDB-YYYY-NNNNNN）
+        # 識別ID（sec:identifier -> dc:identifier の '#' を '-' に置換 -> rdf:about 末尾）
         generated_id = f"JVNDB-LIVE-{len(parsed_items) + 1:04d}"
         jvndb_id = sanitize_id(item_el.findtext("sec:identifier", "", XML_NS), "")
         if not jvndb_id:
-            about = item_el.attrib.get(f"{{{XML_NS['rdf']}}}about", "")
-            jvndb_id = sanitize_id(Path(about).stem, generated_id)
+            dc_ident = normalize_text(item_el.findtext("dc:identifier", "", XML_NS)).replace("#", "-")
+            jvndb_id = sanitize_id(dc_ident, "")
+        if not jvndb_id:
+            about = item_el.attrib.get(f"{{{XML_NS['rdf']}}}about", "").rstrip("/")
+            jvndb_id = sanitize_id(Path(about).stem if about else "", generated_id)
 
-        # CVE ID 抽出（CVE-YYYY-NNNN 形式のみ採用）
+        # CVE ID 抽出（sec:references -> タイトル・説明文中のCVE表記。CVE-YYYY-NNNN 形式のみ採用）
         cve_id = "N/A"
         cwes: list[str] = []
         for ref_el in item_el.findall("sec:references", XML_NS):
@@ -370,6 +371,10 @@ def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
                 cwe_title = normalize_text(ref_el.attrib.get("title"))
                 if cwe_title:
                     cwes.append(cwe_title)
+        if cve_id == "N/A":
+            cve_match = CVE_IN_TEXT_RE.search(f"{raw_title} {raw_desc}")
+            if cve_match:
+                cve_id = sanitize_cve_id(cve_match.group(0))
 
         source_url = resolve_source_url(item_el.findtext("rss:link", "", XML_NS), cve_id)
         issued_raw = (
@@ -412,9 +417,9 @@ def read_limited(resp: Any, max_bytes: int | None = None) -> bytes:
 
 
 def fetch_live_jvn_items(fallback_date: str) -> list[dict[str, Any]]:
-    """プライマリ（JVNDB公式新着RSS）→セカンダリ（MyJVN API）の順でライブ取得する。"""
+    """プライマリ（JVN公式RSS）→セカンダリ（JVNDB公式新着RSS）の順でライブ取得する。"""
     headers = {
-        "User-Agent": "AX-Vuln-Radar/1.0 (+https://jvndb.jvn.jp/)",
+        "User-Agent": "AX-Vuln-Radar/1.0 (+https://jvn.jp/)",
         "Accept": "application/xml, application/rdf+xml, text/xml;q=0.9, */*;q=0.8",
     }
 
@@ -508,7 +513,7 @@ def extract_affected_versions(raw_item: dict[str, Any], product_label: str) -> s
         unique_vers = list(dict.fromkeys(ver_matches))[:3]
         return f"{product_label}（{', '.join(unique_vers)} 系など）"
 
-    return f"{product_label} のサポート対象バージョン（詳細はJVNDBページを参照）"
+    return f"{product_label} のサポート対象バージョン（詳細は公式情報ページを参照）"
 
 
 def extract_json_object(raw_text: str) -> dict[str, Any] | None:

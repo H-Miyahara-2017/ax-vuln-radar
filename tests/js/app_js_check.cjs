@@ -38,7 +38,7 @@ check("isSafeHttpUrl: 拒否", () => {
   }
 });
 
-check("resolveSourceUrl: jvndb.jvn.jp を NVD / IPA へ変換", () => {
+check("resolveSourceUrl: jvndb.jvn.jp のみ NVD / jvn.jp へ変換し jvn.jp 個別URLは保持", () => {
   assert.equal(
     app.resolveSourceUrl("https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html", "CVE-2026-90436"),
     "https://nvd.nist.gov/vuln/detail/CVE-2026-90436"
@@ -49,11 +49,19 @@ check("resolveSourceUrl: jvndb.jvn.jp を NVD / IPA へ変換", () => {
   );
   assert.equal(
     app.resolveSourceUrl("https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-000001.html", "N/A"),
-    "https://www.ipa.go.jp/security/"
+    "https://jvn.jp/"
   );
   assert.equal(
     app.resolveSourceUrl("https://jvndb.jvn.jp/", "invalid"),
-    "https://www.ipa.go.jp/security/"
+    "https://jvn.jp/"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://jvn.jp/vu/JVNVU99608534/", "CVE-2026-114938"),
+    "https://jvn.jp/vu/JVNVU99608534/"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://jvn.jp/jp/JVN84156789/", "N/A"),
+    "https://jvn.jp/jp/JVN84156789/"
   );
   assert.equal(
     app.resolveSourceUrl("https://www.php.net/supported-versions.php", "CVE-2026-18411"),
@@ -169,7 +177,7 @@ check("formatChatworkTemplate: タグ注入の無効化", () => {
   assert.equal((text.match(/\[\/title\]/g) || []).length, 1);
   assert.ok(!/\[toall\]/i.test(text));
   assert.ok(!/\[To:/i.test(text));
-  assert.ok(text.endsWith("https://www.ipa.go.jp/security/[/info]"), "不正URLは既定URLに置換");
+  assert.ok(text.endsWith("https://jvn.jp/[/info]"), "不正URLは既定URLに置換");
 });
 
 check("formatChatworkTemplate: 欠損データでも例外にならない", () => {
