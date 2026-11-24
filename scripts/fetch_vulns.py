@@ -27,13 +27,26 @@ OUTPUT_PATH = PROJECT_ROOT / "public" / "data" / "vulnerabilities.json"
 ENV_PATH = PROJECT_ROOT / ".env"
 JST = timezone(timedelta(hours=9))
 
-# JVNDB 取得元URL（プライマリ: SPEC記載のMyJVN API、セカンダリ: JVNDB公式新着RDF）
-PRIMARY_JVN_URL = (
+# JVNDB 取得元URL
+# プライマリ: JVNDB公式新着RSS（RDF）。セカンダリ: MyJVN API（2026-11 時点で HTTP 404 を返すため予備扱い）
+PRIMARY_JVN_LABEL = "JVNDB公式新着RSS"
+PRIMARY_JVN_URL = "https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf"
+SECONDARY_JVN_LABEL = "MyJVN API"
+SECONDARY_JVN_URL = (
     "https://jvndb.jvn.jp/myjvn"
     "?method=getVulnOverviewList&feed=hnd"
     "&rangeDatePublished=n&rangeDateFirstPublished=n"
 )
-SECONDARY_JVN_URL = "https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf"
+
+# Anthropic モデルID（環境変数 ANTHROPIC_MODEL で上書き可能。未設定・不正値時は現行世代の軽量モデル）
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5"
+MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,99}$")
+# 思考トークン分を含めた出力上限（小さすぎると要約JSONが途中で切れる）
+ANTHROPIC_MAX_TOKENS = 4000
+# 再試行しても回復しないLLM APIエラー（不正リクエスト・認証失敗・権限なし・モデル不存在）
+LLM_FATAL_HTTP_CODES = (400, 401, 403, 404)
+# 上記エラー発生時に1回の実行中のみLLMを無効化するフラグ（理由文字列、空なら有効）
+_llm_disabled_reason = ""
 JVN_FALLBACK_LINK = "https://jvndb.jvn.jp/"
 
 # XML 名前空間
@@ -386,15 +399,15 @@ def read_limited(resp: Any, max_bytes: int | None = None) -> bytes:
 
 
 def fetch_live_jvn_items(fallback_date: str) -> list[dict[str, Any]]:
-    """プライマリ（MyJVN API）→セカンダリ（JVNDB新着RDF）の順でライブ取得する。"""
+    """プライマリ（JVNDB公式新着RSS）→セカンダリ（MyJVN API）の順でライブ取得する。"""
     headers = {
         "User-Agent": "AX-Vuln-Radar/1.0 (+https://jvndb.jvn.jp/)",
         "Accept": "application/xml, application/rdf+xml, text/xml;q=0.9, */*;q=0.8",
     }
 
     for label, url in (
-        ("MyJVN API", PRIMARY_JVN_URL),
-        ("JVNDB公式新着RSS", SECONDARY_JVN_URL),
+        (PRIMARY_JVN_LABEL, PRIMARY_JVN_URL),
+        (SECONDARY_JVN_LABEL, SECONDARY_JVN_URL),
     ):
         try:
             req = urllib.request.Request(url, headers=headers)
@@ -552,13 +565,28 @@ def call_gemini_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
     return extract_json_object(text)
 
 
+def resolve_anthropic_model() -> str:
+    """環境変数 ANTHROPIC_MODEL からモデルIDを取得する。未設定・不正形式なら既定の軽量モデル。"""
+    model = os.environ.get("ANTHROPIC_MODEL", "").strip()
+    if not model:
+        return DEFAULT_ANTHROPIC_MODEL
+    if not MODEL_ID_RE.match(model):
+        print("[警告] ANTHROPIC_MODEL の形式が不正のため既定モデルを使用します。")
+        return DEFAULT_ANTHROPIC_MODEL
+    return model
+
+
 def call_anthropic_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
-    """Anthropic Messages API を呼び出してトリアージJSONを取得する。"""
+    """Anthropic Messages API を呼び出してトリアージJSONを取得する。
+
+    現行モデル（Claude Haiku 5.5 等）は temperature 等の既定値以外のサンプリング指定を
+    400 エラーで拒否するため送信しない。応答が途中終了・拒否された場合は None を返し、
+    呼び出し元でルールベースへフォールバックする。
+    """
     url = "https://api.anthropic.com/v1/messages"
     body = {
-        "model": "claude-3-5-haiku-latest",
-        "max_tokens": 700,
-        "temperature": 0.2,
+        "model": resolve_anthropic_model(),
+        "max_tokens": ANTHROPIC_MAX_TOKENS,
         "messages": [{"role": "user", "content": prompt}],
     }
     req = urllib.request.Request(
@@ -575,6 +603,9 @@ def call_anthropic_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
         res_json = json.loads(read_limited(resp).decode("utf-8"))
     if not isinstance(res_json, dict):
         return None
+    # 出力上限到達（max_tokens）や安全分類器による拒否（refusal）時は不完全な応答として扱う
+    if res_json.get("stop_reason") in ("max_tokens", "refusal"):
+        return None
     content_blocks = res_json.get("content") or []
     if not isinstance(content_blocks, list):
         return None
@@ -588,6 +619,9 @@ def call_anthropic_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
 
 def triage_with_llm(raw_item: dict[str, Any]) -> dict[str, Any] | None:
     """環境変数のAPIキーがある場合のみLLMで平易な日本語トリアージを生成する。"""
+    global _llm_disabled_reason
+    if _llm_disabled_reason:
+        return None
     gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not gemini_key and not anthropic_key:
@@ -616,6 +650,16 @@ def triage_with_llm(raw_item: dict[str, Any]) -> dict[str, Any] | None:
         if validate_triage_payload(payload):
             return payload
         print(f"[警告] LLM応答形式が不正のためルールベースへ切り替えます ({raw_item['id']})")
+    except urllib.error.HTTPError as exc:
+        if exc.code in LLM_FATAL_HTTP_CODES:
+            # モデルID誤り・認証失敗等は再試行しても回復しないため、以降はルールベースのみで処理する
+            _llm_disabled_reason = f"HTTP {exc.code}"
+            print(
+                f"[警告] LLM APIが HTTP {exc.code} を返したため、今回の実行ではLLMを停止し"
+                "ルールベースで処理します（APIキー・ANTHROPIC_MODEL の設定をご確認ください）"
+            )
+        else:
+            print(f"[警告] LLM API呼び出しに失敗したためルールベースを使用します ({raw_item['id']}): HTTP {exc.code}")
     except Exception as exc:
         print(f"[警告] LLM API呼び出しに失敗したためルールベースを使用します ({raw_item['id']}): {exc}")
     return None
@@ -1045,6 +1089,8 @@ def sort_items_by_priority(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def build_dataset() -> dict[str, Any]:
     """ライブ取得とキュレーション補完を統合し、SPEC.md セクション3準拠の辞書を構築する。"""
+    global _llm_disabled_reason
+    _llm_disabled_reason = ""  # 実行ごとにLLM停止状態をリセットする
     now_jst = datetime.now(JST).replace(microsecond=0)
     today_str = now_jst.strftime("%Y-%m-%d")
 

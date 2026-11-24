@@ -24,6 +24,8 @@ def _isolate_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(urllib.request, "urlopen", _blocked_urlopen)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.setattr(fetch_vulns, "_llm_disabled_reason", "")
 
 
 @pytest.fixture()

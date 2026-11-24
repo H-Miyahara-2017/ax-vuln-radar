@@ -7,10 +7,14 @@
 ## 2. データ収集・加工バッチ仕様 (`scripts/fetch_vulns.py`)
 - **実行環境:** Python 3.11+（標準ライブラリ `urllib.request`, `xml.etree.ElementTree`, `json`, `datetime`, `os`, `re` を基本とし、外部ライブラリ依存を最小限にする）
 - **情報取得ソース:**
-  1. **MyJVN API（公式脆弱性対策情報データベース）:** `https://jvndb.jvn.jp/myjvn?method=getVulnOverviewList&feed=hnd&rangeDatePublished=n&rangeDateFirstPublished=n` から最新の脆弱性概要XMLを取得し、キーワード（`Java`, `OpenJDK`, `Spring`, `PHP`, `Apache`, `Nginx`, `OpenSSL`, `WordPress`）に該当する項目を抽出する。
-  2. **フォールバック／デモデータ生成モード:** ネットワーク制限やAPI応答遅延・該当件数不足時でもデモが確実に動作するよう、直近の実際の脆弱性・バージョンアップ事例（Java / Spring Boot / PHP / Apache HTTP Server 等）に基づくリアルな日本語データ（8〜10件）を補完・出力する。
+  1. **プライマリ: JVNDB公式新着RSS（RSS 1.0 / RDF）:** `https://jvndb.jvn.jp/ja/rss/jvndb_new.rdf` から最新の脆弱性情報を取得し、キーワード（`Java`, `OpenJDK`, `Spring`, `PHP`, `Apache`, `Nginx`, `OpenSSL`, `WordPress`）に該当する項目を抽出する。
+  2. **セカンダリ（予備）: MyJVN API:** `https://jvndb.jvn.jp/myjvn?method=getVulnOverviewList&feed=hnd&rangeDatePublished=n&rangeDateFirstPublished=n`。2026-11 時点で HTTP 404 を返すため、プライマリ取得失敗時の予備としてのみ試行する。
+  - **通信要件:** タイムアウト15秒、応答サイズ上限5MB。DTD/ENTITY宣言を含むXMLは安全のため拒否する。いずれのソースも失敗した場合は下記フォールバックモードへ移行する。
+  3. **フォールバック／デモデータ生成モード:** ネットワーク制限やAPI応答遅延・該当件数不足時でもデモが確実に動作するよう、直近の実際の脆弱性・バージョンアップ事例（Java / Spring Boot / PHP / Apache HTTP Server 等）に基づくリアルな日本語データ（8〜10件）を補完・出力する。
 - **AIトリアージ・要約ロジック:**
-  - 環境変数 `GEMINI_API_KEY` または `ANTHROPIC_API_KEY` がある場合はLLM APIを呼び出して中小企業向けの平易な要約・推奨アクションを生成する。
+  - 環境変数 `GEMINI_API_KEY` または `ANTHROPIC_API_KEY` がある場合はLLM APIを呼び出して中小企業向けの平易な要約・推奨アクションを生成する（両方ある場合は Gemini を優先）。
+  - Anthropic 利用時のモデルIDは環境変数 `ANTHROPIC_MODEL` で指定する。未設定・不正形式の場合は現行世代の軽量モデル `claude-haiku-5-5` を使用する。
+  - LLM APIが回復不能なエラー（HTTP 400/401/403/404：モデルID誤り・認証失敗等）を返した場合、その実行中はLLMを停止し、残りの項目をルールベースで処理する。一時的なエラー（429/5xx・タイムアウト）や応答形式不正の場合は該当項目のみルールベースで処理する。
   - APIキー未設定時は、CVSSスコア・キーワードに基づくルールベース変換エンジンにより、同等の日本語要約・緊急度判定・推奨アクションを自動生成する。
 - **出力先:** `public/data/vulnerabilities.json`（UTF-8 / インデント付きJSON）
 
