@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="中小企業向け 脆弱性・バージョン情報 AIトリアージダッシュボード AX Vuln Radar">
+  <title>AX Vuln Radar | 中小企業向け 脆弱性・バージョン情報 AIトリアージ</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <!-- ヘッダーエリア -->
+  <header class="app-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <circle cx="12" cy="11" r="3"></circle>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">AX Vuln Radar</h1>
+          <p class="brand-subtitle">中小企業向け 脆弱性・バージョン情報 AIトリアージ</p>
+        </div>
+      </div>
+
+      <div class="header-meta">
+        <span id="source-mode-badge" class="meta-badge meta-badge--mode">読込中...</span>
+        <span id="updated-at-badge" class="meta-badge meta-badge--time">最終更新: 確認中</span>
+        <button id="reload-button" type="button" class="btn-reload" title="最新のJSONを再読み込み">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>再読込</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <!-- KPIサマリーバー（4カード横並び） -->
+    <section class="kpi-grid" aria-label="KPIサマリー">
+      <button type="button" class="kpi-card kpi-card--total" data-kpi-filter="all">
+        <span class="kpi-label">監視対象件数（全件）</span>
+        <span class="kpi-value-row">
+          <strong id="kpi-total" class="kpi-value">-</strong>
+          <span class="kpi-unit">件</span>
+        </span>
+        <span id="kpi-total-sub" class="kpi-sub">対象データを取得中</span>
+      </button>
+
+      <button type="button" class="kpi-card kpi-card--critical" data-kpi-filter="critical">
+        <span class="kpi-label">緊急対応（Critical）</span>
+        <span class="kpi-value-row">
+          <strong id="kpi-critical" class="kpi-value">-</strong>
+          <span class="kpi-unit">件</span>
+        </span>
+        <span class="kpi-sub">CVSS 9.0以上・クリックで絞込</span>
+      </button>
+
+      <button type="button" class="kpi-card kpi-card--high" data-kpi-filter="high_or_above">
+        <span class="kpi-label">重要対応（High）</span>
+        <span class="kpi-value-row">
+          <strong id="kpi-high" class="kpi-value">-</strong>
+          <span class="kpi-unit">件</span>
+        </span>
+        <span class="kpi-sub">CVSS 7.0〜8.9・重要以上を表示</span>
+      </button>
+
+      <div class="kpi-card kpi-card--categories">
+        <span class="kpi-label">対象技術領域</span>
+        <div id="kpi-categories" class="kpi-tech-list">
+          <span class="tech-pill">Java: -</span>
+          <span class="tech-pill">PHP: -</span>
+          <span class="tech-pill">Middleware: -</span>
+        </div>
+        <span class="kpi-sub">言語・主要Webミドルウェア</span>
+      </div>
+    </section>
+
+    <!-- フィルタ＆検索バー -->
+    <section class="filter-bar" aria-label="絞り込み・検索">
+      <div class="filter-row">
+        <div class="filter-group">
+          <span class="filter-group-label">技術領域</span>
+          <div id="category-tabs" class="segmented-control" role="tablist" aria-label="カテゴリ絞り込み">
+            <button type="button" class="tab-btn is-active" role="tab" aria-selected="true" data-category="all">すべて</button>
+            <button type="button" class="tab-btn" role="tab" aria-selected="false" data-category="Java">Java・Spring</button>
+            <button type="button" class="tab-btn" role="tab" aria-selected="false" data-category="PHP">PHP</button>
+            <button type="button" class="tab-btn" role="tab" aria-selected="false" data-category="Middleware">Webサーバー・その他</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-group-label">緊急度</span>
+          <div id="severity-filters" class="segmented-control" role="group" aria-label="緊急度絞り込み">
+            <button type="button" class="sev-btn is-active" aria-pressed="true" data-severity="all">すべて</button>
+            <button type="button" class="sev-btn" aria-pressed="false" data-severity="critical">緊急のみ</button>
+            <button type="button" class="sev-btn" aria-pressed="false" data-severity="high_or_above">重要以上</button>
+          </div>
+        </div>
+
+        <div class="search-group">
+          <label for="search-input" class="sr-only">キーワード検索</label>
+          <div class="search-input-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="search-input" type="search" class="search-input" placeholder="製品名・CVE番号・キーワードで検索..." autocomplete="off">
+          </div>
+          <span id="result-count" class="result-count">表示: -件</span>
+          <button id="reset-filters-button" type="button" class="btn-reset" hidden>条件リセット</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 脆弱性・バージョン情報カードリスト -->
+    <section id="vuln-list" class="vuln-list" aria-live="polite" aria-label="脆弱性・バージョン情報一覧">
+      <div class="status-panel">
+        <p class="status-panel-title">脆弱性データを読み込んでいます...</p>
+        <p class="status-panel-desc">最新のトリアージ結果を取得しています。</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- トースト通知コンテナ -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>
