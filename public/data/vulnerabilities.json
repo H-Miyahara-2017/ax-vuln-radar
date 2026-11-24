@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24T19:44:22+09:00",
+  "updated_at": "2026-11-24T20:44:01+09:00",
   "source_mode": "live_and_curated",
   "items": [
     {
@@ -18,7 +18,7 @@
         "深刻度が極めて高く（CVSS 9.8）、放置すると任意のコード実行・システム乗っ取りにより大規模な業務停止や情報漏洩に直結するため、最優先での確認・対処が必要です。"
       ],
       "recommended_action": "直ちに稼働中の Apache Axis のバージョンを確認し、開発元が提供する修正済みバージョンへの緊急アップデート（困難な場合はWAFやアクセス制限等の暫定回避策）を実施してください。",
-      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-90436"
     },
     {
       "id": "JVNDB-2026-044541",
@@ -36,7 +36,7 @@
         "深刻度が極めて高く（CVSS 9.8）、放置すると任意のコード実行・システム乗っ取りにより大規模な業務停止や情報漏洩に直結するため、最優先での確認・対処が必要です。"
       ],
       "recommended_action": "直ちに稼働中の NGINX のバージョンを確認し、開発元が提供する修正済みバージョンへの緊急アップデート（困難な場合はWAFやアクセス制限等の暫定回避策）を実施してください。",
-      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044541.html"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-97205"
     },
     {
       "id": "JVNDB-2026-044394",
@@ -54,7 +54,7 @@
         "深刻度が極めて高く（CVSS 9.8）、放置すると任意のコード実行・システム乗っ取りにより大規模な業務停止や情報漏洩に直結するため、最優先での確認・対処が必要です。"
       ],
       "recommended_action": "直ちに稼働中の Apache Roller のバージョンを確認し、開発元が提供する修正済みバージョンへの緊急アップデート（困難な場合はWAFやアクセス制限等の暫定回避策）を実施してください。",
-      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044394.html"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-82384"
     },
     {
       "id": "JVNDB-2026-004101",
@@ -72,7 +72,7 @@
         "放置すると未認証の第三者に機密データの閲覧や不正操作を許すため、最優先で影響有無を確認する必要があります。"
       ],
       "recommended_action": "pom.xml や build.gradle で利用中の Spring Framework / Spring Boot バージョンを確認し、修正済みの最新パッチ版へ速やかにアップデートしてください。",
-      "source_url": "https://jvndb.jvn.jp/"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22234"
     },
     {
       "id": "JVNDB-2026-004055",
@@ -90,7 +90,7 @@
         "放置すると顧客情報の漏洩やWebサイトの改ざん・踏み台化に直結するため、緊急のバージョン確認が必要です。"
       ],
       "recommended_action": "利用中のPHPバージョンを確認し、最新の修正済みマイナーバージョン（8.2.27以降 / 8.3.15以降）へのアップデートを最優先で計画してください。",
-      "source_url": "https://jvndb.jvn.jp/"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21480"
     },
     {
       "id": "JVNDB-2026-044505",
@@ -108,7 +108,7 @@
         "深刻度が高く（CVSS 8.8）、放置すると任意のコード実行・システム乗っ取りにつながるリスクがあるため、計画を前倒しして早急にバージョン確認を行う必要があります。"
       ],
       "recommended_action": "利用中の OpenEMR のバージョンと設定構成を確認し、テスト環境での動作確認のうえ最新のセキュリティ修正版へのアップデートを速やかに計画してください。",
-      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044505.html"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-124467"
     },
     {
       "id": "JVNDB-2026-003812",
@@ -126,7 +126,7 @@
         "悪用されるとサーバー内の業務データ窃取やマルウェア感染につながるため、早急なパッチ適用が求められます。"
       ],
       "recommended_action": "サーバー上で `java -version` を実行して現在のビルド番号を確認し、最新の四半期セキュリティアップデート（CPU）を適用してください。",
-      "source_url": "https://jvndb.jvn.jp/"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-20941"
     },
     {
       "id": "JVNDB-2026-003720",
@@ -162,7 +162,7 @@
         "直ちにサーバーが乗っ取られるわけではありませんが、設定ファイル内の接続情報漏洩を防ぐため計画的な更新が推奨されます。"
       ],
       "recommended_action": "Tomcat のバージョンおよび server.xml の公開設定を確認し、次回のメンテナンス時に修正済みマイナーバージョンへ更新してください。",
-      "source_url": "https://jvndb.jvn.jp/"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-19802"
     },
     {
       "id": "JVNDB-2026-044393",
@@ -180,7 +180,7 @@
         "直ちに全面的な被害へ直結する可能性は中程度ですが（CVSS 5.3）、他の不備と組み合わさるとサービス停止やメモリ破損を招くため、定期メンテナンス等での対応が推奨されます。"
       ],
       "recommended_action": "運用中の OpenJDK / Java が該当条件に当てはまるか確認し、次回の定期パッチ適用タイミングに合わせて修正済みバージョンへの更新を検討してください。",
-      "source_url": "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044393.html"
+      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-114938"
     }
   ]
 }

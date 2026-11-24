@@ -98,6 +98,45 @@ def test_sanitize_http_url_rejects_unsafe(fv, url):
 
 
 @pytest.mark.parametrize(
+    ("url", "cve_id", "expected"),
+    [
+        (
+            "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html",
+            "CVE-2026-90436",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-90436",
+        ),
+        (
+            "https://jvndb.jvn.jp/",
+            "cve-2026-12345",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-12345",
+        ),
+        (
+            "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html",
+            "N/A",
+            "https://www.ipa.go.jp/security/",
+        ),
+        (
+            "https://jvndb.jvn.jp/",
+            "INVALID-CVE",
+            "https://www.ipa.go.jp/security/",
+        ),
+        (
+            "https://www.php.net/supported-versions.php",
+            "CVE-2026-18411",
+            "https://www.php.net/supported-versions.php",
+        ),
+        (
+            "javascript:alert(1)",
+            "CVE-2026-99999",
+            "https://www.ipa.go.jp/security/",
+        ),
+    ],
+)
+def test_resolve_source_url_converts_jvn_and_keeps_others(fv, url, cve_id, expected):
+    assert fv.resolve_source_url(url, cve_id) == expected
+
+
+@pytest.mark.parametrize(
     ("raw", "expected"),
     [
         ("CVE-2026-12345", "CVE-2026-12345"),

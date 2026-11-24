@@ -47,7 +47,9 @@ ANTHROPIC_MAX_TOKENS = 4000
 LLM_FATAL_HTTP_CODES = (400, 401, 403, 404)
 # 上記エラー発生時に1回の実行中のみLLMを無効化するフラグ（理由文字列、空なら有効）
 _llm_disabled_reason = ""
-JVN_FALLBACK_LINK = "https://jvndb.jvn.jp/"
+IPA_FALLBACK_LINK = "https://www.ipa.go.jp/security/"
+NVD_DETAIL_BASE_URL = "https://nvd.nist.gov/vuln/detail/"
+JVN_FALLBACK_LINK = IPA_FALLBACK_LINK
 
 # XML 名前空間
 XML_NS = {
@@ -189,6 +191,17 @@ def sanitize_http_url(url: str | None) -> str:
     if parsed.username is not None or parsed.password is not None:
         return JVN_FALLBACK_LINK
     return cleaned
+
+
+def resolve_source_url(url: Any, cve_id: Any) -> str:
+    """参照URLを正規化し、停止中の jvndb.jvn.jp をNVD個別詳細またはIPAへ変換する。"""
+    sanitized_url = sanitize_http_url(url if isinstance(url, str) else None)
+    if "jvndb.jvn.jp" in sanitized_url.lower():
+        normalized_cve = sanitize_cve_id(cve_id)
+        if normalized_cve != "N/A":
+            return f"{NVD_DETAIL_BASE_URL}{normalized_cve}"
+        return IPA_FALLBACK_LINK
+    return sanitized_url
 
 
 def sanitize_id(raw_id: Any, fallback: str) -> str:
@@ -358,7 +371,7 @@ def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
                 if cwe_title:
                     cwes.append(cwe_title)
 
-        source_url = sanitize_http_url(item_el.findtext("rss:link", "", XML_NS))
+        source_url = resolve_source_url(item_el.findtext("rss:link", "", XML_NS), cve_id)
         issued_raw = (
             item_el.findtext("dcterms:issued", "", XML_NS)
             or item_el.findtext("dc:date", "", XML_NS)
@@ -852,9 +865,10 @@ def sanitize_output_item(item: dict[str, Any], fallback_date: str) -> dict[str, 
     )
 
     published = item.get("published_date")
+    cve_id = sanitize_cve_id(item.get("cve_id"))
     return {
         "id": sanitize_id(item.get("id"), "JVNDB-UNKNOWN"),
-        "cve_id": sanitize_cve_id(item.get("cve_id")),
+        "cve_id": cve_id,
         "title": title,
         "category": category,
         "severity": severity,
@@ -866,7 +880,7 @@ def sanitize_output_item(item: dict[str, Any], fallback_date: str) -> dict[str, 
         "affected_versions": affected,
         "summary_3lines": summary,
         "recommended_action": action,
-        "source_url": sanitize_http_url(item.get("source_url")),
+        "source_url": resolve_source_url(item.get("source_url"), cve_id),
     }
 
 
@@ -890,7 +904,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "放置すると未認証の第三者に機密データの閲覧や不正操作を許すため、最優先で影響有無を確認する必要があります。",
             ],
             "recommended_action": "pom.xml や build.gradle で利用中の Spring Framework / Spring Boot バージョンを確認し、修正済みの最新パッチ版へ速やかにアップデートしてください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22234",
         },
         {
             "id": "JVNDB-2026-003812",
@@ -908,7 +922,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "悪用されるとサーバー内の業務データ窃取やマルウェア感染につながるため、早急なパッチ適用が求められます。",
             ],
             "recommended_action": "サーバー上で `java -version` を実行して現在のビルド番号を確認し、最新の四半期セキュリティアップデート（CPU）を適用してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-20941",
         },
         {
             "id": "JVNDB-2026-003490",
@@ -926,7 +940,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "直ちにサーバーが乗っ取られるわけではありませんが、設定ファイル内の接続情報漏洩を防ぐため計画的な更新が推奨されます。",
             ],
             "recommended_action": "Tomcat のバージョンおよび server.xml の公開設定を確認し、次回のメンテナンス時に修正済みマイナーバージョンへ更新してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-19802",
         },
         # --- PHP (3件) ---
         {
@@ -945,7 +959,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "放置すると顧客情報の漏洩やWebサイトの改ざん・踏み台化に直結するため、緊急のバージョン確認が必要です。",
             ],
             "recommended_action": "利用中のPHPバージョンを確認し、最新の修正済みマイナーバージョン（8.2.27以降 / 8.3.15以降）へのアップデートを最優先で計画してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21480",
         },
         {
             "id": "JVNDB-2026-003720",
@@ -981,7 +995,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "サーバーの乗っ取りには至らないものの、連続攻撃によりWebサービスが一時停止する恐れがあるため更新が推奨されます。",
             ],
             "recommended_action": "アップロードファイルサイズ上限の適切な設定を確認するとともに、定期アップデート時にPHPの修正版へ更新してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-17605",
         },
         # --- Middleware (3件) ---
         {
@@ -1000,7 +1014,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "管理画面への不正アクセスや社内システムへの侵入につながる重大な欠陥のため、早急な確認とパッチ適用が必要です。",
             ],
             "recommended_action": "利用中の Apache バージョン（`httpd -v` 等）および RewriteRule 設定を確認し、最新の修正版（2.4.63以降）へのアップデートを実施してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22510",
         },
         {
             "id": "JVNDB-2026-003905",
@@ -1018,7 +1032,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "悪用されるとWebサイトやVPN・メールサーバーのHTTPS接続が断続的に停止し、業務や顧客対応に支障をきたす恐れがあります。",
             ],
             "recommended_action": "Linuxディストリビューションのパッケージ管理（apt / dnf 等）で最新の OpenSSL セキュリティパッケージが提供されているか確認し、適用してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21018",
         },
         {
             "id": "JVNDB-2026-003604",
@@ -1036,7 +1050,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "管理画面のセッションを乗っ取られると、サイト全体の改ざんや不正なリダイレクト設定を仕掛けられるリスクがあります。",
             ],
             "recommended_action": "WordPress管理画面から最新のマイナーアップデートを適用し、あわせて利用中のプラグイン・テーマに未更新のものがないか確認してください。",
-            "source_url": "https://jvndb.jvn.jp/",
+            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-19140",
         },
     ]
 

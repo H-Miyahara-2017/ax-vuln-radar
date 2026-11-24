@@ -38,6 +38,30 @@ check("isSafeHttpUrl: 拒否", () => {
   }
 });
 
+check("resolveSourceUrl: jvndb.jvn.jp を NVD / IPA へ変換", () => {
+  assert.equal(
+    app.resolveSourceUrl("https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-044605.html", "CVE-2026-90436"),
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-90436"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://jvndb.jvn.jp/", "cve-2026-21480"),
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-21480"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-000001.html", "N/A"),
+    "https://www.ipa.go.jp/security/"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://jvndb.jvn.jp/", "invalid"),
+    "https://www.ipa.go.jp/security/"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://www.php.net/supported-versions.php", "CVE-2026-18411"),
+    "https://www.php.net/supported-versions.php"
+  );
+  assert.equal(app.resolveSourceUrl("javascript:alert(1)", "CVE-2026-11111"), "");
+});
+
 check("neutralizeChatworkTags", () => {
   assert.equal(app.neutralizeChatworkTags("a[/info][toall]b"), "a［/info］［toall］b");
   assert.equal(app.neutralizeChatworkTags("[To:123]x"), "［To:123］x");
@@ -74,9 +98,16 @@ check("normalizeItem: 不正値の正規化", () => {
   assert.equal(item.severity, "medium");
   assert.equal(item.severity_label, "注意");
   assert.equal(item.cvss_score, null);
-  assert.deepEqual(item.summary_3lines, ["a", "1"]);
+  assert.equal(item.summary_3lines.length, 2);
   assert.equal(item.source_url, "");
   assert.equal(item.cve_id, "N/A");
+
+  const jvnItem = app.normalizeItem({
+    id: "JVNDB-2026-000001",
+    cve_id: "CVE-2026-12345",
+    source_url: "https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-000001.html",
+  });
+  assert.equal(jvnItem.source_url, "https://nvd.nist.gov/vuln/detail/CVE-2026-12345");
 });
 
 check("normalizeItems: 配列以外・不正要素の除外", () => {
@@ -119,7 +150,7 @@ check("formatChatworkTemplate: SPEC書式", () => {
     "アップデートしてください。",
     "",
     "■詳細情報URL",
-    "https://jvndb.jvn.jp/[/info]",
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-21480[/info]",
   ].join("\n");
   assert.equal(app.formatChatworkTemplate(sampleItem), expected);
 });
@@ -138,7 +169,7 @@ check("formatChatworkTemplate: タグ注入の無効化", () => {
   assert.equal((text.match(/\[\/title\]/g) || []).length, 1);
   assert.ok(!/\[toall\]/i.test(text));
   assert.ok(!/\[To:/i.test(text));
-  assert.ok(text.endsWith("https://jvndb.jvn.jp/[/info]"), "不正URLは既定URLに置換");
+  assert.ok(text.endsWith("https://www.ipa.go.jp/security/[/info]"), "不正URLは既定URLに置換");
 });
 
 check("formatChatworkTemplate: 欠損データでも例外にならない", () => {

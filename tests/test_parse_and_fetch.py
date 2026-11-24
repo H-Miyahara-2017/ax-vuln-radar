@@ -29,7 +29,19 @@ def test_parse_jvn_xml_basic_item(fv):
     assert item["cvss_score"] == 9.8
     assert (item["severity"], item["severity_label"]) == ("critical", "緊急")
     assert item["published_date"] == "2026-11-20"
-    assert item["source_url"].startswith("https://jvndb.jvn.jp/")
+    assert item["source_url"] == "https://nvd.nist.gov/vuln/detail/CVE-2026-11111"
+
+
+def test_parse_jvn_xml_jvn_link_without_cve_falls_back_to_ipa(fv):
+    xml = build_rdf(
+        rdf_item(
+            link="https://jvndb.jvn.jp/ja/contents/2026/JVNDB-2026-000099.html",
+            references="",
+        )
+    )
+    item = fv.parse_jvn_xml(xml, FALLBACK_DATE)[0]
+    assert item["cve_id"] == "N/A"
+    assert item["source_url"] == "https://www.ipa.go.jp/security/"
 
 
 def test_parse_jvn_xml_filters_non_target_keywords(fv):

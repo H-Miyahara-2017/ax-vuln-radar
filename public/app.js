@@ -6,7 +6,9 @@
  */
 
 const DATA_URL = "./data/vulnerabilities.json";
-const FALLBACK_SOURCE_URL = "https://jvndb.jvn.jp/";
+const FALLBACK_SOURCE_URL = "https://www.ipa.go.jp/security/";
+const NVD_DETAIL_BASE_URL = "https://nvd.nist.gov/vuln/detail/";
+const CVE_ID_RE = /^CVE-\d{4}-\d{4,}$/i;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FETCH_TIMEOUT_MS = 10000;
 const MAX_ITEMS = 200;
@@ -61,6 +63,27 @@ function isSafeHttpUrl(rawUrl) {
 }
 
 /**
+ * 参照URLを正規化し、停止中の jvndb.jvn.jp をNVD個別詳細またはIPAへ変換する
+ * @param {unknown} rawUrl
+ * @param {unknown} rawCveId
+ * @returns {string}
+ */
+function resolveSourceUrl(rawUrl, rawCveId) {
+  const safeUrl = isSafeHttpUrl(rawUrl);
+  if (!safeUrl) {
+    return "";
+  }
+  if (safeUrl.toLowerCase().includes("jvndb.jvn.jp")) {
+    const cveText = toSafeText(rawCveId, 64).toUpperCase();
+    if (CVE_ID_RE.test(cveText)) {
+      return `${NVD_DETAIL_BASE_URL}${cveText}`;
+    }
+    return FALLBACK_SOURCE_URL;
+  }
+  return safeUrl;
+}
+
+/**
  * 外部由来の値を表示・コピー用の安全な文字列に正規化する
  * （文字列以外は空文字、制御文字除去、長さ制限）
  * @param {unknown} value
@@ -99,9 +122,10 @@ function normalizeItem(raw) {
     ? raw.summary_3lines.slice(0, 3).map((line) => toSafeText(line)).filter(Boolean)
     : [];
   const score = Number(raw.cvss_score);
+  const cveId = toSafeText(raw.cve_id, 64) || "N/A";
   return {
     id: toSafeText(raw.id, 64),
-    cve_id: toSafeText(raw.cve_id, 64) || "N/A",
+    cve_id: cveId,
     title: toSafeText(raw.title),
     category,
     severity,
@@ -111,7 +135,7 @@ function normalizeItem(raw) {
     affected_versions: toSafeText(raw.affected_versions),
     summary_3lines: summary,
     recommended_action: toSafeText(raw.recommended_action),
-    source_url: isSafeHttpUrl(raw.source_url),
+    source_url: resolveSourceUrl(raw.source_url, cveId),
   };
 }
 
@@ -190,7 +214,7 @@ function formatChatworkTemplate(item) {
   const line0 = t(summaryLines[0]);
   const line1 = t(summaryLines[1]);
   const line2 = t(summaryLines[2]);
-  const safeUrl = isSafeHttpUrl(src.source_url) || FALLBACK_SOURCE_URL;
+  const safeUrl = resolveSourceUrl(src.source_url, src.cve_id) || FALLBACK_SOURCE_URL;
   const scoreText = normalizeCvssScore(src.cvss_score);
 
   return [
@@ -534,7 +558,7 @@ function createVulnCard(item) {
   pubDate.textContent = `公開日: ${item.published_date || "-"}`;
   metaRight.append(pubDate);
 
-  const safeUrl = isSafeHttpUrl(item.source_url);
+  const safeUrl = resolveSourceUrl(item.source_url, item.cve_id);
   if (safeUrl) {
     const link = document.createElement("a");
     link.className = "source-link";
@@ -866,6 +890,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     isSafeHttpUrl,
+    resolveSourceUrl,
     toSafeText,
     neutralizeChatworkTags,
     normalizeItem,
