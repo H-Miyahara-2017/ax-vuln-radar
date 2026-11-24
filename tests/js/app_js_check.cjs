@@ -64,10 +64,33 @@ check("resolveSourceUrl: jvndb.jvn.jp のみ NVD / jvn.jp へ変換し jvn.jp �
     "https://jvn.jp/jp/JVN84156789/"
   );
   assert.equal(
-    app.resolveSourceUrl("https://www.php.net/supported-versions.php", "CVE-2026-18411"),
-    "https://www.php.net/supported-versions.php"
+    app.resolveSourceUrl("https://www.php.net/ChangeLog-8.php", "CVE-2026-18411"),
+    "https://www.php.net/ChangeLog-8.php"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://www.oracle.com/security-alerts/", "CVE-2026-20941"),
+    "https://www.oracle.com/security-alerts/"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://spring.io/security", "CVE-2026-22234"),
+    "https://spring.io/security"
+  );
+  assert.equal(
+    app.resolveSourceUrl("https://httpd.apache.org/security/vulnerabilities_24.html", "CVE-2026-22510"),
+    "https://httpd.apache.org/security/vulnerabilities_24.html"
   );
   assert.equal(app.resolveSourceUrl("javascript:alert(1)", "CVE-2026-11111"), "");
+});
+
+check("getOfficialAdvisoryUrl: 公式セキュリティアドバイザリ一覧URL", () => {
+  assert.equal(app.getOfficialAdvisoryUrl("PHP", "PHP 8.3 系の脆弱性"), "https://www.php.net/ChangeLog-8.php");
+  assert.equal(app.getOfficialAdvisoryUrl("Java", "Oracle Java SE / OpenJDK"), "https://www.oracle.com/security-alerts/");
+  assert.equal(app.getOfficialAdvisoryUrl("Java", "Spring Framework 認証バイパス"), "https://spring.io/security");
+  assert.equal(
+    app.getOfficialAdvisoryUrl("Middleware", "Apache HTTP Server 2.4 系"),
+    "https://httpd.apache.org/security/vulnerabilities_24.html"
+  );
+  assert.equal(app.getOfficialAdvisoryUrl("Middleware", "OpenSSL 3.0 の脆弱性"), "https://jvn.jp/");
 });
 
 check("neutralizeChatworkTags", () => {

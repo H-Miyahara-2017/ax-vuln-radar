@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-24T20:49:47+09:00",
+  "updated_at": "2026-11-24T21:00:00+09:00",
   "source_mode": "live_and_curated",
   "items": [
     {
@@ -18,25 +18,7 @@
         "放置すると未認証の第三者に機密データの閲覧や不正操作を許すため、最優先で影響有無を確認する必要があります。"
       ],
       "recommended_action": "pom.xml や build.gradle で利用中の Spring Framework / Spring Boot バージョンを確認し、修正済みの最新パッチ版へ速やかにアップデートしてください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22234"
-    },
-    {
-      "id": "JVNDB-2026-004120",
-      "cve_id": "CVE-2026-22510",
-      "title": "Apache HTTP Server 2.4 系におけるリバースプロキシの権限制御回避",
-      "category": "Middleware",
-      "severity": "critical",
-      "severity_label": "緊急",
-      "cvss_score": 9.3,
-      "published_date": "2026-11-24",
-      "affected_versions": "Apache HTTP Server 2.4.0 〜 2.4.62",
-      "summary_3lines": [
-        "mod_rewrite や mod_proxy を利用した構成で、特定のURLを送信されると本来アクセス制限された社内向けバックエンドへ到達される恐れがあります。",
-        "Webサーバーやリバースプロキシとして Apache HTTP Server 2.4 系を運用している多くの中小企業・レンタルサーバー環境が対象です。",
-        "管理画面への不正アクセスや社内システムへの侵入につながる重大な欠陥のため、早急な確認とパッチ適用が必要です。"
-      ],
-      "recommended_action": "利用中の Apache バージョン（`httpd -v` 等）および RewriteRule 設定を確認し、最新の修正版（2.4.63以降）へのアップデートを実施してください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22510"
+      "source_url": "https://spring.io/security"
     },
     {
       "id": "JVNDB-2026-004055",
@@ -54,7 +36,7 @@
         "放置すると顧客情報の漏洩やWebサイトの改ざん・踏み台化に直結するため、緊急のバージョン確認が必要です。"
       ],
       "recommended_action": "利用中のPHPバージョンを確認し、最新の修正済みマイナーバージョン（8.2.27以降 / 8.3.15以降）へのアップデートを最優先で計画してください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21480"
+      "source_url": "https://www.php.net/ChangeLog-8.php"
     },
     {
       "id": "JVNDB-2026-003812",
@@ -72,25 +54,7 @@
         "悪用されるとサーバー内の業務データ窃取やマルウェア感染につながるため、早急なパッチ適用が求められます。"
       ],
       "recommended_action": "サーバー上で `java -version` を実行して現在のビルド番号を確認し、最新の四半期セキュリティアップデート（CPU）を適用してください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-20941"
-    },
-    {
-      "id": "JVNDB-2026-003905",
-      "cve_id": "CVE-2026-21018",
-      "title": "OpenSSL 3.0 / 3.2 系におけるTLSハンドシェイク時のメモリ破損（DoS）",
-      "category": "Middleware",
-      "severity": "high",
-      "severity_label": "重要",
-      "cvss_score": 7.8,
-      "published_date": "2026-11-24",
-      "affected_versions": "OpenSSL 3.0.15以前 / 3.2.3以前 / 3.3.2以前",
-      "summary_3lines": [
-        "HTTPS通信の開始処理（TLSハンドシェイク）で細工されたクライアント証明書等を検証する際、サーバープロセスがクラッシュする恐れがあります。",
-        "Nginx、Apache、各種Linuxサーバー上でSSL/TLS暗号化通信に OpenSSL 3.x 系を利用している公開サーバー全般が影響を受けます。",
-        "悪用されるとWebサイトやVPN・メールサーバーのHTTPS接続が断続的に停止し、業務や顧客対応に支障をきたす恐れがあります。"
-      ],
-      "recommended_action": "Linuxディストリビューションのパッケージ管理（apt / dnf 等）で最新の OpenSSL セキュリティパッケージが提供されているか確認し、適用してください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21018"
+      "source_url": "https://www.oracle.com/security-alerts/"
     },
     {
       "id": "JVNDB-2026-003720",
@@ -108,7 +72,7 @@
         "既知の脆弱性が放置された状態となりサイバー攻撃の標的になりやすいため、サポート中の 8.3 / 8.4 系への移行が必要です。"
       ],
       "recommended_action": "テスト環境でPHP 8.3系または8.4系での動作確認を実施し、互換性対応のうえで本番環境のPHPバージョンアップを計画してください。",
-      "source_url": "https://www.php.net/supported-versions.php"
+      "source_url": "https://www.php.net/ChangeLog-8.php"
     },
     {
       "id": "JVNDB-2026-003490",
@@ -126,25 +90,25 @@
         "直ちにサーバーが乗っ取られるわけではありませんが、設定ファイル内の接続情報漏洩を防ぐため計画的な更新が推奨されます。"
       ],
       "recommended_action": "Tomcat のバージョンおよび server.xml の公開設定を確認し、次回のメンテナンス時に修正済みマイナーバージョンへ更新してください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-19802"
+      "source_url": "https://jvn.jp/"
     },
     {
-      "id": "JVNDB-2026-003318",
-      "cve_id": "CVE-2026-17605",
-      "title": "PHP ファイルアップロードおよびXML解析処理におけるサービス妨害（DoS）",
-      "category": "PHP",
+      "id": "JVN-84156789",
+      "cve_id": "N/A",
+      "title": "Zoraxyにおける複数の脆弱性",
+      "category": "Middleware",
       "severity": "medium",
       "severity_label": "注意",
-      "cvss_score": 5.9,
+      "cvss_score": 5.3,
       "published_date": "2026-11-24",
-      "affected_versions": "PHP 8.2.24以前 / 8.3.12以前（mbstring / libxml拡張利用時）",
+      "affected_versions": "Zoraxy のサポート対象バージョン（詳細は公式情報ページを参照）",
       "summary_3lines": [
-        "不正な文字コードや巨大な構造を含むファイル・XMLデータを受信すると、PHPプロセスが異常終了し応答不能になる恐れがあります。",
-        "顧客からのファイルアップロード機能や外部APIとのXMLデータ連携をPHPで実装しているシステムが影響対象となります。",
-        "サーバーの乗っ取りには至らないものの、連続攻撃によりWebサービスが一時停止する恐れがあるため更新が推奨されます。"
+        "Zoraxy の処理にセキュリティ上の欠陥が見つかっており、外部からの不正な入力によって想定外の動作や障害を引き起こす恐れがあります。",
+        "Webサーバーやリバースプロキシ、暗号化通信基盤として Zoraxy をインターネット公開サーバー等で利用している企業は影響を受けます。",
+        "直ちに全面的な被害へ直結する可能性は中程度ですが（CVSS 5.3）、他の不備と組み合わさると不正操作やシステム障害を招くため、定期メンテナンス等での対応が推奨されます。"
       ],
-      "recommended_action": "アップロードファイルサイズ上限の適切な設定を確認するとともに、定期アップデート時にPHPの修正版へ更新してください。",
-      "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-17605"
+      "recommended_action": "運用中の Zoraxy が該当条件に当てはまるか確認し、次回の定期パッチ適用タイミングに合わせて修正済みバージョンへの更新を検討してください。",
+      "source_url": "https://jvn.jp/jp/JVN84156789/"
     },
     {
       "id": "JVNVU-99608534",
@@ -181,6 +145,42 @@
       ],
       "recommended_action": "運用中の OpenSSL が該当条件に当てはまるか確認し、次回の定期パッチ適用タイミングに合わせて修正済みバージョンへの更新を検討してください。",
       "source_url": "https://jvn.jp/vu/JVNVU96847970/"
+    },
+    {
+      "id": "JVN-02242982",
+      "cve_id": "N/A",
+      "title": "プリザンターにおける複数の脆弱性",
+      "category": "Middleware",
+      "severity": "medium",
+      "severity_label": "注意",
+      "cvss_score": 5.3,
+      "published_date": "2026-11-17",
+      "affected_versions": "プリザンター のサポート対象バージョン（詳細は公式情報ページを参照）",
+      "summary_3lines": [
+        "プリザンター の処理にセキュリティ上の欠陥が見つかっており、外部からの不正な入力によって想定外の動作や障害を引き起こす恐れがあります。",
+        "Webサーバーやリバースプロキシ、暗号化通信基盤として プリザンター をインターネット公開サーバー等で利用している企業は影響を受けます。",
+        "直ちに全面的な被害へ直結する可能性は中程度ですが（CVSS 5.3）、他の不備と組み合わさると不正操作やシステム障害を招くため、定期メンテナンス等での対応が推奨されます。"
+      ],
+      "recommended_action": "運用中の プリザンター が該当条件に当てはまるか確認し、次回の定期パッチ適用タイミングに合わせて修正済みバージョンへの更新を検討してください。",
+      "source_url": "https://jvn.jp/jp/JVN02242982/"
+    },
+    {
+      "id": "JVN-76799957",
+      "cve_id": "N/A",
+      "title": "JetBrains製YouTrackにおけるクロスサイトスクリプティングの脆弱性",
+      "category": "Middleware",
+      "severity": "medium",
+      "severity_label": "注意",
+      "cvss_score": 5.3,
+      "published_date": "2026-11-13",
+      "affected_versions": "JetBrains YouTrack のサポート対象バージョン（詳細は公式情報ページを参照）",
+      "summary_3lines": [
+        "JetBrains YouTrack を利用したWeb画面上で悪意あるスクリプトが実行され、ログイン中の利用者セッション情報やCookieが盗まれる恐れがあります。",
+        "Webサーバーやリバースプロキシ、暗号化通信基盤として JetBrains YouTrack をインターネット公開サーバー等で利用している企業は影響を受けます。",
+        "直ちに全面的な被害へ直結する可能性は中程度ですが（CVSS 5.3）、他の不備と組み合わさるとセッション乗っ取りや画面改ざんを招くため、定期メンテナンス等での対応が推奨されます。"
+      ],
+      "recommended_action": "運用中の JetBrains YouTrack が該当条件に当てはまるか確認し、次回の定期パッチ適用タイミングに合わせて修正済みバージョンへの更新を検討してください。",
+      "source_url": "https://jvn.jp/jp/JVN76799957/"
     }
   ]
 }

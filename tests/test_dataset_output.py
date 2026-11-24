@@ -66,6 +66,22 @@ def test_curated_fallback_items_count_and_balance(fv):
     assert {i["severity"] for i in items} == {"critical", "high", "medium"}
 
 
+def test_curated_fallback_items_use_official_advisory_urls(fv):
+    """補完データには架空CVEのNVD個別URLや停止中jvndb URLを使わず、公式アドバイザリ一覧URLを設定すること。"""
+    allowed_urls = {
+        "https://www.php.net/ChangeLog-8.php",
+        "https://www.oracle.com/security-alerts/",
+        "https://spring.io/security",
+        "https://httpd.apache.org/security/vulnerabilities_24.html",
+        "https://jvn.jp/",
+    }
+    items = fv.get_curated_fallback_items("2026-11-24")
+    for item in items:
+        assert "nvd.nist.gov" not in item["source_url"]
+        assert "jvndb.jvn.jp" not in item["source_url"]
+        assert item["source_url"] in allowed_urls, item
+
+
 def test_build_dataset_fallback_when_network_unavailable(fv, monkeypatch):
     monkeypatch.setattr(fv, "fetch_live_jvn_items", lambda _d: [])
     dataset = fv.build_dataset()

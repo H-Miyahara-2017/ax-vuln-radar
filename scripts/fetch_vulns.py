@@ -65,6 +65,20 @@ OTHER_TARGET_KEYWORDS = (
     "nginx",
     "openssl",
     "wordpress",
+    "tomcat",
+    "mysql",
+    "postgresql",
+    "mariadb",
+    "redis",
+    "bind",
+    "imagemagick",
+    "openssh",
+    "postfix",
+    "curl",
+    "zoraxy",
+    "pleasanter",
+    "プリザンター",
+    "youtrack",
 )
 
 # バリデーション用定数
@@ -475,6 +489,18 @@ def detect_product_label(raw_item: dict[str, Any]) -> str:
         ("wordpress", "WordPress"),
         ("openjdk", "OpenJDK / Java"),
         ("php", "PHP"),
+        ("isc bind", "ISC BIND"),
+        ("bind", "ISC BIND"),
+        ("imagemagick", "ImageMagick"),
+        ("zoraxy", "Zoraxy"),
+        ("プリザンター", "プリザンター"),
+        ("pleasanter", "プリザンター"),
+        ("youtrack", "JetBrains YouTrack"),
+        ("mysql", "MySQL"),
+        ("postgresql", "PostgreSQL"),
+        ("mariadb", "MariaDB"),
+        ("redis", "Redis"),
+        ("openssh", "OpenSSH"),
     )
     # 1. タイトルまたはCPEに既知の代表製品が含まれる場合は最優先
     for target in (title_lower, cpe_lower):
@@ -909,7 +935,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "放置すると未認証の第三者に機密データの閲覧や不正操作を許すため、最優先で影響有無を確認する必要があります。",
             ],
             "recommended_action": "pom.xml や build.gradle で利用中の Spring Framework / Spring Boot バージョンを確認し、修正済みの最新パッチ版へ速やかにアップデートしてください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22234",
+            "source_url": "https://spring.io/security",
         },
         {
             "id": "JVNDB-2026-003812",
@@ -927,7 +953,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "悪用されるとサーバー内の業務データ窃取やマルウェア感染につながるため、早急なパッチ適用が求められます。",
             ],
             "recommended_action": "サーバー上で `java -version` を実行して現在のビルド番号を確認し、最新の四半期セキュリティアップデート（CPU）を適用してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-20941",
+            "source_url": "https://www.oracle.com/security-alerts/",
         },
         {
             "id": "JVNDB-2026-003490",
@@ -945,7 +971,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "直ちにサーバーが乗っ取られるわけではありませんが、設定ファイル内の接続情報漏洩を防ぐため計画的な更新が推奨されます。",
             ],
             "recommended_action": "Tomcat のバージョンおよび server.xml の公開設定を確認し、次回のメンテナンス時に修正済みマイナーバージョンへ更新してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-19802",
+            "source_url": "https://jvn.jp/",
         },
         # --- PHP (3件) ---
         {
@@ -964,7 +990,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "放置すると顧客情報の漏洩やWebサイトの改ざん・踏み台化に直結するため、緊急のバージョン確認が必要です。",
             ],
             "recommended_action": "利用中のPHPバージョンを確認し、最新の修正済みマイナーバージョン（8.2.27以降 / 8.3.15以降）へのアップデートを最優先で計画してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21480",
+            "source_url": "https://www.php.net/ChangeLog-8.php",
         },
         {
             "id": "JVNDB-2026-003720",
@@ -982,7 +1008,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "既知の脆弱性が放置された状態となりサイバー攻撃の標的になりやすいため、サポート中の 8.3 / 8.4 系への移行が必要です。",
             ],
             "recommended_action": "テスト環境でPHP 8.3系または8.4系での動作確認を実施し、互換性対応のうえで本番環境のPHPバージョンアップを計画してください。",
-            "source_url": "https://www.php.net/supported-versions.php",
+            "source_url": "https://www.php.net/ChangeLog-8.php",
         },
         {
             "id": "JVNDB-2026-003318",
@@ -1000,7 +1026,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "サーバーの乗っ取りには至らないものの、連続攻撃によりWebサービスが一時停止する恐れがあるため更新が推奨されます。",
             ],
             "recommended_action": "アップロードファイルサイズ上限の適切な設定を確認するとともに、定期アップデート時にPHPの修正版へ更新してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-17605",
+            "source_url": "https://www.php.net/ChangeLog-8.php",
         },
         # --- Middleware (3件) ---
         {
@@ -1019,7 +1045,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "管理画面への不正アクセスや社内システムへの侵入につながる重大な欠陥のため、早急な確認とパッチ適用が必要です。",
             ],
             "recommended_action": "利用中の Apache バージョン（`httpd -v` 等）および RewriteRule 設定を確認し、最新の修正版（2.4.63以降）へのアップデートを実施してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22510",
+            "source_url": "https://httpd.apache.org/security/vulnerabilities_24.html",
         },
         {
             "id": "JVNDB-2026-003905",
@@ -1037,7 +1063,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "悪用されるとWebサイトやVPN・メールサーバーのHTTPS接続が断続的に停止し、業務や顧客対応に支障をきたす恐れがあります。",
             ],
             "recommended_action": "Linuxディストリビューションのパッケージ管理（apt / dnf 等）で最新の OpenSSL セキュリティパッケージが提供されているか確認し、適用してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21018",
+            "source_url": "https://jvn.jp/",
         },
         {
             "id": "JVNDB-2026-003604",
@@ -1055,7 +1081,7 @@ def get_curated_fallback_items(today_str: str) -> list[dict[str, Any]]:
                 "管理画面のセッションを乗っ取られると、サイト全体の改ざんや不正なリダイレクト設定を仕掛けられるリスクがあります。",
             ],
             "recommended_action": "WordPress管理画面から最新のマイナーアップデートを適用し、あわせて利用中のプラグイン・テーマに未更新のものがないか確認してください。",
-            "source_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-19140",
+            "source_url": "https://jvn.jp/",
         },
     ]
 

@@ -8,6 +8,13 @@
 const DATA_URL = "./data/vulnerabilities.json";
 const FALLBACK_SOURCE_URL = "https://jvn.jp/";
 const NVD_DETAIL_BASE_URL = "https://nvd.nist.gov/vuln/detail/";
+const OFFICIAL_ADVISORY_URLS = {
+  php: "https://www.php.net/ChangeLog-8.php",
+  java: "https://www.oracle.com/security-alerts/",
+  spring: "https://spring.io/security",
+  apacheHttpd: "https://httpd.apache.org/security/vulnerabilities_24.html",
+  jvn: "https://jvn.jp/",
+};
 const CVE_ID_RE = /^CVE-\d{4}-\d{4,}$/i;
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FETCH_TIMEOUT_MS = 10000;
@@ -60,6 +67,29 @@ function isSafeHttpUrl(rawUrl) {
     return "";
   }
   return trimmed;
+}
+
+/**
+ * カテゴリ・製品タイトルに対応する公式セキュリティアドバイザリ一覧URLを返す
+ * @param {unknown} category
+ * @param {unknown} title
+ * @returns {string}
+ */
+function getOfficialAdvisoryUrl(category, title) {
+  const titleLower = typeof title === "string" ? title.toLowerCase() : "";
+  if (titleLower.includes("spring")) {
+    return OFFICIAL_ADVISORY_URLS.spring;
+  }
+  if (category === "PHP" || titleLower.includes("php")) {
+    return OFFICIAL_ADVISORY_URLS.php;
+  }
+  if (titleLower.includes("apache http") || titleLower.includes("httpd")) {
+    return OFFICIAL_ADVISORY_URLS.apacheHttpd;
+  }
+  if ((category === "Java" || titleLower.includes("openjdk") || /\bjava\b/i.test(titleLower)) && !titleLower.includes("tomcat")) {
+    return OFFICIAL_ADVISORY_URLS.java;
+  }
+  return OFFICIAL_ADVISORY_URLS.jvn;
 }
 
 /**
@@ -890,6 +920,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     isSafeHttpUrl,
+    getOfficialAdvisoryUrl,
     resolveSourceUrl,
     toSafeText,
     neutralizeChatworkTags,

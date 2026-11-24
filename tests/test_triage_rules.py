@@ -76,6 +76,10 @@ def test_classify_category(fv, title, desc, cpes, expected):
         ("java.lang の問題", True),
         ("JavaScript エンジンの脆弱性", False),
         ("Apache HTTP Server", True),
+        ("ISC BINDにおける複数の脆弱性", True),
+        ("ImageMagickを利用したアプリケーション", True),
+        ("Zoraxyにおける複数の脆弱性", True),
+        ("プリザンターにおける複数の脆弱性", True),
         ("Microsoft Exchange Server", False),
     ],
 )
