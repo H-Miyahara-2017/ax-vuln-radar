@@ -8,6 +8,17 @@
 const DATA_URL = "./data/vulnerabilities.json";
 const FALLBACK_SOURCE_URL = "https://jvndb.jvn.jp/";
 const SVG_NS = "http://www.w3.org/2000/svg";
+const FETCH_TIMEOUT_MS = 10000;
+const MAX_ITEMS = 200;
+const MAX_TEXT_LENGTH = 1000;
+const VALID_CATEGORIES = ["Java", "PHP", "Middleware"];
+const SEVERITY_LABELS = { critical: "緊急", high: "重要", medium: "注意" };
+
+/** 制御文字・Unicode双方向制御文字（表示偽装の防止） */
+const CONTROL_CHARS_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f​-‏‪-‮⁦-⁩﻿]/g;
+/** Chatwork記法タグ（報告文へのタグ注入・[toall]等による一斉通知の悪用を防止） */
+const CHATWORK_TAG_RE =
+  /\[(\/?)(info|title|code|hr|qt|qtmeta|toall|to|rp|re|picon|piconname|preview|download|task|dtext|deleted)\b([^[\]]*)\]/gi;
 
 /** ダッシュボード状態 */
 const state = {
@@ -30,10 +41,90 @@ function isSafeHttpUrl(rawUrl) {
     return "";
   }
   const trimmed = rawUrl.trim();
-  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
-    return trimmed;
+  if (!trimmed || /[\s\u0000-\u001f\u007f]/.test(trimmed)) {
+    return "";
   }
-  return "";
+  // 先頭一致ではなくURLパーサで判定し、スキーム・ホスト・認証情報埋め込みを厳密に検証する
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch (_err) {
+    return "";
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return "";
+  }
+  if (!parsed.hostname || parsed.username || parsed.password) {
+    return "";
+  }
+  return trimmed;
+}
+
+/**
+ * 外部由来の値を表示・コピー用の安全な文字列に正規化する
+ * （文字列以外は空文字、制御文字除去、長さ制限）
+ * @param {unknown} value
+ * @param {number} [maxLength]
+ * @returns {string}
+ */
+function toSafeText(value, maxLength = MAX_TEXT_LENGTH) {
+  if (typeof value !== "string" && typeof value !== "number") {
+    return "";
+  }
+  const text = String(value).replace(CONTROL_CHARS_RE, "").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+/**
+ * Chatwork記法タグの角括弧を全角化し、コピー文面内でタグとして解釈されないようにする
+ * @param {unknown} value
+ * @returns {string}
+ */
+function neutralizeChatworkTags(value) {
+  return toSafeText(value).replace(CHATWORK_TAG_RE, (_m, slash, name, rest) => `［${slash}${name}${rest}］`);
+}
+
+/**
+ * JSONから読み込んだ1件をスキーマに沿って正規化する（不正な型は既定値に置換）
+ * @param {unknown} raw
+ * @returns {Record<string, any> | null}
+ */
+function normalizeItem(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const severity = Object.prototype.hasOwnProperty.call(SEVERITY_LABELS, raw.severity) ? raw.severity : "medium";
+  const category = VALID_CATEGORIES.includes(raw.category) ? raw.category : "Middleware";
+  const summary = Array.isArray(raw.summary_3lines)
+    ? raw.summary_3lines.slice(0, 3).map((line) => toSafeText(line)).filter(Boolean)
+    : [];
+  const score = Number(raw.cvss_score);
+  return {
+    id: toSafeText(raw.id, 64),
+    cve_id: toSafeText(raw.cve_id, 64) || "N/A",
+    title: toSafeText(raw.title),
+    category,
+    severity,
+    severity_label: SEVERITY_LABELS[severity],
+    cvss_score: Number.isFinite(score) && score >= 0 && score <= 10 ? score : null,
+    published_date: toSafeText(raw.published_date, 32),
+    affected_versions: toSafeText(raw.affected_versions),
+    summary_3lines: summary,
+    recommended_action: toSafeText(raw.recommended_action),
+    source_url: isSafeHttpUrl(raw.source_url),
+  };
+}
+
+/**
+ * JSONペイロードのitems配列を正規化する（不正要素は除外、件数上限あり）
+ * @param {unknown} rawItems
+ * @returns {Array<Record<string, any>>}
+ */
+function normalizeItems(rawItems) {
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+  return rawItems.slice(0, MAX_ITEMS).map(normalizeItem).filter((item) => item !== null);
 }
 
 /**
@@ -42,6 +133,9 @@ function isSafeHttpUrl(rawUrl) {
  * @returns {string}
  */
 function normalizeCvssScore(rawScore) {
+  if (rawScore === null || rawScore === undefined || rawScore === "") {
+    return "-";
+  }
   const num = Number(rawScore);
   if (Number.isFinite(num)) {
     return num.toFixed(1);
@@ -89,18 +183,21 @@ function getSourceModeLabel(mode) {
  * @returns {string}
  */
 function formatChatworkTemplate(item) {
-  const summaryLines = Array.isArray(item.summary_3lines) ? item.summary_3lines : [];
-  const line0 = typeof summaryLines[0] === "string" ? summaryLines[0] : "";
-  const line1 = typeof summaryLines[1] === "string" ? summaryLines[1] : "";
-  const line2 = typeof summaryLines[2] === "string" ? summaryLines[2] : "";
-  const safeUrl = isSafeHttpUrl(item.source_url) || FALLBACK_SOURCE_URL;
-  const scoreText = normalizeCvssScore(item.cvss_score);
+  const src = item && typeof item === "object" ? item : {};
+  // 埋め込む値はすべて Chatwork タグを無効化してから差し込む（[/info] での枠脱出や [toall] 注入を防止）
+  const t = (value) => neutralizeChatworkTags(value);
+  const summaryLines = Array.isArray(src.summary_3lines) ? src.summary_3lines : [];
+  const line0 = t(summaryLines[0]);
+  const line1 = t(summaryLines[1]);
+  const line2 = t(summaryLines[2]);
+  const safeUrl = isSafeHttpUrl(src.source_url) || FALLBACK_SOURCE_URL;
+  const scoreText = normalizeCvssScore(src.cvss_score);
 
   return [
-    `[info][title]【セキュリティ注意喚起・緊急度：${item.severity_label || ""}】${item.title || ""}[/title]■対象技術・影響バージョン`,
-    `${item.category || ""}（${item.affected_versions || ""}）`,
+    `[info][title]【セキュリティ注意喚起・緊急度：${t(src.severity_label)}】${t(src.title)}[/title]■対象技術・影響バージョン`,
+    `${t(src.category)}（${t(src.affected_versions)}）`,
     "■識別番号・公開日",
-    `${item.id || ""} / ${item.cve_id || ""}（公開日: ${item.published_date || ""} / CVSS: ${scoreText}）`,
+    `${t(src.id)} / ${t(src.cve_id)}（公開日: ${t(src.published_date)} / CVSS: ${scoreText}）`,
     "",
     "■概要（何が危険か）",
     `・${line0}`,
@@ -108,7 +205,7 @@ function formatChatworkTemplate(item) {
     `・${line2}`,
     "",
     "■推奨される対応アクション",
-    `${item.recommended_action || ""}`,
+    `${t(src.recommended_action)}`,
     "",
     "■詳細情報URL",
     `${safeUrl}[/info]`,
@@ -129,6 +226,9 @@ function filterItems(items, filters) {
   const terms = rawKeyword ? rawKeyword.split(/\s+/).filter(Boolean) : [];
 
   return list.filter((item) => {
+    if (!item || typeof item !== "object") {
+      return false;
+    }
     if (category !== "all" && item.category !== category) {
       return false;
     }
@@ -644,26 +744,49 @@ function renderError(detailMessage) {
 
 /**
  * JSONデータを取得して画面全体を初期化する
+ * @returns {Promise<boolean>} 読み込みに成功した場合 true
  */
 async function loadVulnerabilities() {
+  // 応答が返らない場合でも画面が固まらないよう、タイムアウトで中断する
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeoutId = controller ? window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS) : null;
   try {
-    const response = await fetch(DATA_URL, { cache: "no-store" });
+    const response = await fetch(DATA_URL, {
+      cache: "no-store",
+      signal: controller ? controller.signal : undefined,
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    const payload = await response.json();
-    if (!payload || !Array.isArray(payload.items)) {
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (_parseErr) {
+      throw new Error("JSONデータの解析に失敗しました。");
+    }
+    if (!payload || typeof payload !== "object" || !Array.isArray(payload.items)) {
       throw new Error("JSONデータ形式が不正です。");
     }
-    state.items = payload.items;
-    state.updatedAt = typeof payload.updated_at === "string" ? payload.updated_at : "";
+    state.items = normalizeItems(payload.items);
+    state.updatedAt = typeof payload.updated_at === "string" ? toSafeText(payload.updated_at, 64) : "";
     state.sourceMode = typeof payload.source_mode === "string" ? payload.source_mode : "";
 
     renderHeaderMeta();
     renderDashboard();
+    return true;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "通信エラーが発生しました。";
+    let message = "通信エラーが発生しました。";
+    if (err && err.name === "AbortError") {
+      message = "データ取得がタイムアウトしました。";
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
     renderError(message);
+    return false;
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -727,8 +850,8 @@ function bindEvents() {
   const reloadBtn = document.getElementById("reload-button");
   if (reloadBtn) {
     reloadBtn.addEventListener("click", async () => {
-      await loadVulnerabilities();
-      showToast("最新の脆弱性データを再読み込みしました");
+      const ok = await loadVulnerabilities();
+      showToast(ok ? "最新の脆弱性データを再読み込みしました" : "脆弱性データの再読み込みに失敗しました");
     });
   }
 }
@@ -743,6 +866,10 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     isSafeHttpUrl,
+    toSafeText,
+    neutralizeChatworkTags,
+    normalizeItem,
+    normalizeItems,
     normalizeCvssScore,
     formatUpdatedAt,
     getSourceModeLabel,
