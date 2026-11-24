@@ -1,7 +1,8 @@
 /* AX Vuln Radar - エンタープライズSaaS風コンパクトダッシュボード */
 
 :root {
-  --bg-page: #f4f7fb;
+  color-scheme: light only;
+  --bg-page: #f8fafc;
   --bg-card: #ffffff;
   --bg-subtle: #f8fafc;
   --navy-900: #0f294a;
@@ -30,8 +31,8 @@
   --success-bg: #f0fdf4;
   --success-border: #bbf7d0;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 12px rgba(15, 41, 74, 0.07);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 41, 74, 0.08);
   --radius-md: 10px;
   --radius-sm: 6px;
 }
@@ -42,10 +43,16 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 body {
@@ -727,6 +734,7 @@ button.kpi-card:hover {
 
 /* トースト通知 */
 .toast {
+  display: none;
   position: fixed;
   right: 20px;
   bottom: 20px;
@@ -747,6 +755,7 @@ button.kpi-card:hover {
 }
 
 .toast.is-visible {
+  display: block;
   opacity: 1;
   transform: translateY(0);
 }

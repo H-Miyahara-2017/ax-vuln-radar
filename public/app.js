@@ -252,6 +252,7 @@ function showToast(message) {
     return;
   }
   toastEl.textContent = message;
+  toastEl.hidden = false;
   toastEl.classList.add("is-visible");
 
   if (state.toastTimerId !== null) {
@@ -259,6 +260,7 @@ function showToast(message) {
   }
   state.toastTimerId = window.setTimeout(() => {
     toastEl.classList.remove("is-visible");
+    toastEl.hidden = true;
     state.toastTimerId = null;
   }, 3000);
 }
