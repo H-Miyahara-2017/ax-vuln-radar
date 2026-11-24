@@ -7,11 +7,14 @@ MyJVN API / JVNDB公式RSSフィードからJava・PHP・Webミドルウェア�
 
 from __future__ import annotations
 
+import http.client
 import json
+import math
 import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -58,6 +61,30 @@ OTHER_TARGET_KEYWORDS = (
 VALID_CATEGORIES = ("Java", "PHP", "Middleware")
 SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2}
 HTTP_TIMEOUT_SEC = 15
+# 外部応答の最大受信サイズ（巨大応答によるメモリ枯渇を防止）
+MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+# CVSSが取得できない場合の既定値（medium相当）
+DEFAULT_CVSS_SCORE = 5.3
+
+# 出力フィールドごとの最大文字数（異常に長い外部データ・LLM出力を切り詰める）
+MAX_LEN_ID = 64
+MAX_LEN_TITLE = 200
+MAX_LEN_AFFECTED = 300
+MAX_LEN_SUMMARY_LINE = 400
+MAX_LEN_ACTION = 500
+MAX_LEN_URL = 2048
+
+# 制御文字・Unicode双方向制御文字（表示偽装の防止）
+CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f​-‏‪-‮⁦-⁩﻿]")
+# Chatwork記法タグ（報告文へのタグ注入・[toall]等による一斉通知の悪用を防止）
+CHATWORK_TAG_RE = re.compile(
+    r"\[(/?)(info|title|code|hr|qt|qtmeta|toall|to|rp|re|picon|piconname|"
+    r"preview|download|task|dtext|deleted)\b([^\[\]]*)\]",
+    re.IGNORECASE,
+)
+ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
+CVE_ID_RE = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
+DTD_RE = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
 
 
 def configure_console_encoding() -> None:
@@ -108,12 +135,73 @@ def normalize_text(text: str | None) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def neutralize_chatwork_tags(text: str) -> str:
+    """Chatwork記法タグの角括弧を全角化し、報告文コピー時にタグとして解釈されないようにする。"""
+    return CHATWORK_TAG_RE.sub(lambda m: f"［{m.group(1)}{m.group(2)}{m.group(3)}］", text)
+
+
+def sanitize_text(text: Any, max_len: int) -> str:
+    """外部由来の文字列を出力用に無害化する。
+
+    - 文字列以外は空文字として扱う
+    - 改行・連続空白の正規化、制御文字・双方向制御文字の除去
+    - Chatwork記法タグの無効化
+    - 最大文字数での切り詰め
+    HTMLエスケープはフロントエンド側の textContent 描画で担保するため、ここでは行わない。
+    """
+    if not isinstance(text, str):
+        return ""
+    # 先に改行・タブを空白へ正規化してから残りの制御文字を除去する（語の連結を防ぐ）
+    cleaned = CONTROL_CHARS_RE.sub("", normalize_text(text)).strip()
+    cleaned = neutralize_chatwork_tags(cleaned)
+    if len(cleaned) > max_len:
+        cleaned = cleaned[: max_len - 1].rstrip() + "…"
+    return cleaned
+
+
 def sanitize_http_url(url: str | None) -> str:
-    """http/https スキームのURLのみを許可し、それ以外は安全な既定URLを返す。"""
-    cleaned = normalize_text(url)
-    if cleaned.startswith("https://") or cleaned.startswith("http://"):
-        return cleaned
-    return JVN_FALLBACK_LINK
+    """http/https スキームかつホスト名を持つURLのみを許可し、それ以外は安全な既定URLを返す。"""
+    cleaned = normalize_text(url) if isinstance(url, str) else ""
+    if not cleaned or len(cleaned) > MAX_LEN_URL or CONTROL_CHARS_RE.search(cleaned):
+        return JVN_FALLBACK_LINK
+    if " " in cleaned:
+        return JVN_FALLBACK_LINK
+    try:
+        parsed = urllib.parse.urlsplit(cleaned)
+    except ValueError:
+        return JVN_FALLBACK_LINK
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return JVN_FALLBACK_LINK
+    # 認証情報埋め込みURL（https://user:pass@host/）は偽装リンクに悪用されるため拒否
+    if parsed.username is not None or parsed.password is not None:
+        return JVN_FALLBACK_LINK
+    return cleaned
+
+
+def sanitize_id(raw_id: Any, fallback: str) -> str:
+    """JVNDB等の識別子を英数字・記号の安全な形式に限定する。"""
+    cleaned = normalize_text(raw_id) if isinstance(raw_id, str) else ""
+    return cleaned if ID_RE.match(cleaned) else fallback
+
+
+def sanitize_cve_id(raw_id: Any) -> str:
+    """CVE-YYYY-NNNN 形式のみ許可し、それ以外は "N/A" とする。"""
+    cleaned = normalize_text(raw_id) if isinstance(raw_id, str) else ""
+    return cleaned.upper() if CVE_ID_RE.match(cleaned) else "N/A"
+
+
+def parse_cvss_value(raw_score: Any) -> float | None:
+    """CVSSスコア文字列を 0.0〜10.0 の有限な小数（1桁丸め）に変換する。不正値は None。"""
+    if isinstance(raw_score, bool):
+        return None
+    try:
+        score = float(raw_score)
+    except (TypeError, ValueError):
+        return None
+    # NaN / Infinity は JSON 出力を壊す（ブラウザの JSON.parse が失敗する）ため必ず除外
+    if not math.isfinite(score) or score < 0.0 or score > 10.0:
+        return None
+    return round(score, 1)
 
 
 def matches_target_keywords(text: str) -> bool:
@@ -151,10 +239,16 @@ def classify_category(
 
 
 def classify_severity(cvss_score: float) -> tuple[str, str]:
-    """CVSSスコアから緊急度キーと日本語ラベルを判定する。"""
-    if cvss_score >= 9.0:
+    """CVSSスコアから緊急度キーと日本語ラベルを判定する。
+
+    SPEC上の値域は critical / high / medium の3値のため、4.0未満や不正値は medium（注意）に寄せる。
+    """
+    score = parse_cvss_value(cvss_score)
+    if score is None:
+        return "medium", "注意"
+    if score >= 9.0:
         return "critical", "緊急"
-    if cvss_score >= 7.0:
+    if score >= 7.0:
         return "high", "重要"
     return "medium", "注意"
 
@@ -164,7 +258,12 @@ def parse_published_date(raw_date: str | None, fallback_date: str) -> str:
     cleaned = normalize_text(raw_date)
     match = re.match(r"^(\d{4}-\d{2}-\d{2})", cleaned)
     if match:
-        return match.group(1)
+        # 「2026-99-99」のような実在しない日付は採用しない
+        try:
+            datetime.strptime(match.group(1), "%Y-%m-%d")
+            return match.group(1)
+        except ValueError:
+            pass
     return fallback_date
 
 
@@ -175,12 +274,8 @@ def extract_cvss_score(item_el: ET.Element) -> float:
     other_scores: list[float] = []
 
     for cvss_el in item_el.findall("sec:cvss", XML_NS):
-        raw_score = cvss_el.attrib.get("score")
-        if not raw_score:
-            continue
-        try:
-            score = round(float(raw_score), 1)
-        except ValueError:
+        score = parse_cvss_value(cvss_el.attrib.get("score"))
+        if score is None:
             continue
         version = cvss_el.attrib.get("version", "")
         if version.startswith("3."):
@@ -196,11 +291,17 @@ def extract_cvss_score(item_el: ET.Element) -> float:
         return max(v2_scores)
     if other_scores:
         return max(other_scores)
-    return 5.3
+    return DEFAULT_CVSS_SCORE
 
 
 def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
-    """JVNDBのRDF/XMLバイト列をパースし、対象キーワード一致アイテムを返す。"""
+    """JVNDBのRDF/XMLバイト列をパースし、対象キーワード一致アイテムを返す。
+
+    DTD/ENTITY宣言を含むXMLは、エンティティ展開攻撃（Billion Laughs等）や
+    XXEを避けるためパース前に拒否する（JVNDBの正規応答はDTDを含まない）。
+    """
+    if DTD_RE.search(xml_bytes):
+        raise ET.ParseError("DTD/ENTITY宣言を含むXMLは安全のため処理しません")
     root = ET.fromstring(xml_bytes)
     parsed_items: list[dict[str, Any]] = []
 
@@ -225,20 +326,20 @@ def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
             continue
 
         # 識別ID（JVNDB-YYYY-NNNNNN）
-        jvndb_id = normalize_text(item_el.findtext("sec:identifier", "", XML_NS))
+        generated_id = f"JVNDB-LIVE-{len(parsed_items) + 1:04d}"
+        jvndb_id = sanitize_id(item_el.findtext("sec:identifier", "", XML_NS), "")
         if not jvndb_id:
             about = item_el.attrib.get(f"{{{XML_NS['rdf']}}}about", "")
-            stem = Path(about).stem
-            jvndb_id = stem if stem else f"JVNDB-LIVE-{len(parsed_items) + 1:04d}"
+            jvndb_id = sanitize_id(Path(about).stem, generated_id)
 
-        # CVE ID 抽出
+        # CVE ID 抽出（CVE-YYYY-NNNN 形式のみ採用）
         cve_id = "N/A"
         cwes: list[str] = []
         for ref_el in item_el.findall("sec:references", XML_NS):
             src = ref_el.attrib.get("source", "").upper()
             ref_id = normalize_text(ref_el.attrib.get("id"))
             if src == "CVE" and ref_id and cve_id == "N/A":
-                cve_id = ref_id
+                cve_id = sanitize_cve_id(ref_id)
             elif ref_id.startswith("CWE-"):
                 cwe_title = normalize_text(ref_el.attrib.get("title"))
                 if cwe_title:
@@ -274,6 +375,16 @@ def parse_jvn_xml(xml_bytes: bytes, fallback_date: str) -> list[dict[str, Any]]:
     return parsed_items
 
 
+def read_limited(resp: Any, max_bytes: int | None = None) -> bytes:
+    """HTTP応答本文を上限サイズ付きで読み込む。上限超過時は ValueError。"""
+    if max_bytes is None:
+        max_bytes = MAX_RESPONSE_BYTES
+    data = resp.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValueError(f"応答サイズが上限（{max_bytes} bytes）を超えています")
+    return data
+
+
 def fetch_live_jvn_items(fallback_date: str) -> list[dict[str, Any]]:
     """プライマリ（MyJVN API）→セカンダリ（JVNDB新着RDF）の順でライブ取得する。"""
     headers = {
@@ -288,7 +399,7 @@ def fetch_live_jvn_items(fallback_date: str) -> list[dict[str, Any]]:
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SEC) as resp:
-                xml_bytes = resp.read()
+                xml_bytes = read_limited(resp)
             items = parse_jvn_xml(xml_bytes, fallback_date)
             if items:
                 print(f"[情報] {label} から対象脆弱性 {len(items)} 件を取得しました。")
@@ -298,8 +409,15 @@ def fetch_live_jvn_items(fallback_date: str) -> list[dict[str, Any]]:
             print(f"[警告] {label} の取得に失敗しました (HTTP {exc.code}): {url}")
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             print(f"[警告] {label} への接続中にエラーが発生しました: {exc}")
+        except http.client.HTTPException as exc:
+            # IncompleteRead 等は OSError ではないため個別に捕捉する
+            print(f"[警告] {label} の応答受信中にエラーが発生しました: {exc!r}")
         except ET.ParseError as exc:
             print(f"[警告] {label} のXMLパースに失敗しました: {exc}")
+        except ValueError as exc:
+            print(f"[警告] {label} の応答が不正です: {exc}")
+        except Exception as exc:  # noqa: BLE001 - 想定外の例外でもフォールバックを継続する
+            print(f"[警告] {label} の処理中に想定外のエラーが発生しました: {exc!r}")
 
     return []
 
@@ -401,9 +519,10 @@ def validate_triage_payload(payload: dict[str, Any] | None) -> bool:
 
 def call_gemini_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
     """Gemini API を呼び出してトリアージJSONを取得する。"""
+    # APIキーはURLクエリではなくヘッダーで送る（例外メッセージ・プロキシログ等への漏洩防止）
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.5-flash:generateContent?key={api_key}"
+        "gemini-2.5-flash:generateContent"
     )
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -415,16 +534,21 @@ def call_gemini_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SEC) as resp:
-        res_json = json.loads(resp.read().decode("utf-8"))
-    candidates = res_json.get("candidates") or []
-    if not candidates:
+        res_json = json.loads(read_limited(resp).decode("utf-8"))
+    if not isinstance(res_json, dict):
         return None
-    parts = candidates[0].get("content", {}).get("parts") or []
-    text = "".join(p.get("text", "") for p in parts)
+    candidates = res_json.get("candidates") or []
+    if not isinstance(candidates, list) or not candidates or not isinstance(candidates[0], dict):
+        return None
+    content = candidates[0].get("content")
+    parts = content.get("parts") if isinstance(content, dict) else None
+    if not isinstance(parts, list):
+        return None
+    text = "".join(p.get("text", "") for p in parts if isinstance(p, dict) and isinstance(p.get("text"), str))
     return extract_json_object(text)
 
 
@@ -448,9 +572,17 @@ def call_anthropic_triage(prompt: str, api_key: str) -> dict[str, Any] | None:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SEC) as resp:
-        res_json = json.loads(resp.read().decode("utf-8"))
+        res_json = json.loads(read_limited(resp).decode("utf-8"))
+    if not isinstance(res_json, dict):
+        return None
     content_blocks = res_json.get("content") or []
-    text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
+    if not isinstance(content_blocks, list):
+        return None
+    text = "".join(
+        b.get("text", "")
+        for b in content_blocks
+        if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)
+    )
     return extract_json_object(text)
 
 
@@ -623,19 +755,74 @@ def triage_with_rules(raw_item: dict[str, Any]) -> dict[str, Any]:
 def triage_item(raw_item: dict[str, Any]) -> dict[str, Any]:
     """ライブ取得1件をSPEC準拠の最終アイテム辞書へ変換する。"""
     triaged = triage_with_llm(raw_item) or triage_with_rules(raw_item)
+    return sanitize_output_item(
+        {
+            "id": raw_item["id"],
+            "cve_id": raw_item["cve_id"],
+            "title": triaged["title"],
+            "category": raw_item["category"],
+            "severity": raw_item["severity"],
+            "severity_label": raw_item["severity_label"],
+            "cvss_score": raw_item["cvss_score"],
+            "published_date": raw_item["published_date"],
+            "affected_versions": triaged["affected_versions"],
+            "summary_3lines": triaged["summary_3lines"],
+            "recommended_action": triaged["recommended_action"],
+            "source_url": raw_item["source_url"],
+        },
+        raw_item["published_date"],
+    )
+
+
+def sanitize_output_item(item: dict[str, Any], fallback_date: str) -> dict[str, Any]:
+    """出力直前に1件をSPECスキーマへ正規化・無害化する（冪等）。
+
+    - 文字列フィールドは sanitize_text で制御文字除去・Chatworkタグ無効化・長さ制限
+    - CVSSは有限な0〜10に限定し、severity / severity_label はCVSSから再判定してSPECと整合させる
+    - category は値域外なら Middleware、URLは http/https 以外なら既定URLに置換
+    """
+    score = parse_cvss_value(item.get("cvss_score"))
+    if score is None:
+        score = DEFAULT_CVSS_SCORE
+    severity, severity_label = classify_severity(score)
+
+    category = item.get("category")
+    if category not in VALID_CATEGORIES:
+        category = "Middleware"
+
+    raw_summary = item.get("summary_3lines")
+    summary_src = raw_summary if isinstance(raw_summary, list) else []
+    summary = [sanitize_text(line, MAX_LEN_SUMMARY_LINE) for line in summary_src[:3]]
+    summary = [line for line in summary if line]
+    while len(summary) < 3:
+        summary.append("詳細は公式情報をご確認ください。")
+
+    title = sanitize_text(item.get("title"), MAX_LEN_TITLE) or "（タイトル不明の脆弱性情報）"
+    affected = (
+        sanitize_text(item.get("affected_versions"), MAX_LEN_AFFECTED)
+        or "詳細は公式情報をご確認ください"
+    )
+    action = (
+        sanitize_text(item.get("recommended_action"), MAX_LEN_ACTION)
+        or "利用中製品のバージョンを確認し、修正済みバージョンの適用要否を検討してください。"
+    )
+
+    published = item.get("published_date")
     return {
-        "id": raw_item["id"],
-        "cve_id": raw_item["cve_id"],
-        "title": normalize_text(triaged["title"]),
-        "category": raw_item["category"],
-        "severity": raw_item["severity"],
-        "severity_label": raw_item["severity_label"],
-        "cvss_score": raw_item["cvss_score"],
-        "published_date": raw_item["published_date"],
-        "affected_versions": normalize_text(triaged["affected_versions"]),
-        "summary_3lines": [normalize_text(line) for line in triaged["summary_3lines"][:3]],
-        "recommended_action": normalize_text(triaged["recommended_action"]),
-        "source_url": raw_item["source_url"],
+        "id": sanitize_id(item.get("id"), "JVNDB-UNKNOWN"),
+        "cve_id": sanitize_cve_id(item.get("cve_id")),
+        "title": title,
+        "category": category,
+        "severity": severity,
+        "severity_label": severity_label,
+        "cvss_score": score,
+        "published_date": parse_published_date(
+            published if isinstance(published, str) else None, fallback_date
+        ),
+        "affected_versions": affected,
+        "summary_3lines": summary,
+        "recommended_action": action,
+        "source_url": sanitize_http_url(item.get("source_url")),
     }
 
 
@@ -864,7 +1051,23 @@ def build_dataset() -> dict[str, Any]:
     live_raw = fetch_live_jvn_items(today_str)
     curated_items = get_curated_fallback_items(today_str)
 
-    if not live_raw:
+    curated_items = [sanitize_output_item(item, today_str) for item in curated_items]
+
+    triaged_live: list[dict[str, Any]] = []
+    if live_raw:
+        try:
+            selected_live_raw = select_diverse_live_items(live_raw, max_count=5)
+        except Exception as exc:  # noqa: BLE001 - 選定失敗時もフォールバックで継続
+            print(f"[警告] ライブデータの選定に失敗しました: {exc!r}")
+            selected_live_raw = []
+        for item in selected_live_raw:
+            # 1件の変換失敗でバッチ全体が止まらないよう個別に保護する
+            try:
+                triaged_live.append(triage_item(item))
+            except Exception as exc:  # noqa: BLE001
+                print(f"[警告] {item.get('id', '?')} のトリアージに失敗したためスキップします: {exc!r}")
+
+    if not triaged_live:
         print("[情報] ライブデータ未取得のため、キュレーション済みフォールバックデータを出力します。")
         final_items = sort_items_by_priority(curated_items)
         return {
@@ -872,9 +1075,6 @@ def build_dataset() -> dict[str, Any]:
             "source_mode": "curated_fallback",
             "items": final_items,
         }
-
-    selected_live_raw = select_diverse_live_items(live_raw, max_count=5)
-    triaged_live = [triage_item(item) for item in selected_live_raw]
 
     # 全カテゴリ（Java / PHP / Middleware）がバランスよく揃うようキュレーションデータで補完する
     final_items = list(triaged_live)
@@ -918,10 +1118,20 @@ def build_dataset() -> dict[str, Any]:
 
 
 def write_dataset(dataset: dict[str, Any], output_path: Path = OUTPUT_PATH) -> None:
-    """データセットをUTF-8・インデント付きJSONとして書き出す。"""
+    """データセットをUTF-8・インデント付きJSONとして書き出す。
+
+    - allow_nan=False で NaN/Infinity を含む不正JSONの出力を防止する
+    - 一時ファイルへ書いてから置換し、書き込み途中の壊れたJSONを公開しない
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(dataset, ensure_ascii=False, indent=2) + "\n"
-    output_path.write_text(serialized, encoding="utf-8")
+    serialized = json.dumps(dataset, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+    tmp_path = output_path.with_name(output_path.name + ".tmp")
+    try:
+        tmp_path.write_text(serialized, encoding="utf-8")
+        os.replace(tmp_path, output_path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
 
 
 def main() -> int:
