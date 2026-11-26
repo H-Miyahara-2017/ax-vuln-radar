@@ -420,32 +420,6 @@ function showToast(message) {
 }
 
 /**
- * 文字列をクリップボードへコピーする（Clipboard API＋フォールバック）
- * @param {string} text
- * @returns {Promise<void>}
- */
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "readonly");
-  textarea.style.position = "fixed";
-  textarea.style.top = "-9999px";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  const succeeded = document.execCommand("copy");
-  document.body.removeChild(textarea);
-  if (!succeeded) {
-    throw new Error("クリップボードへのコピーに失敗しました。");
-  }
-}
-
-/**
  * ヘッダーメタ領域を更新する
  */
 function renderHeaderMeta() {
@@ -618,7 +592,7 @@ function createVulnCard(item) {
   affectedText.textContent = item.affected_versions || "詳細は公式情報をご確認ください";
   affectedRow.append(affectedLabel, affectedText);
 
-  // 本文2カラム（左: AI平易解説3行、右: 推奨アクション＋Chatworkコピー）
+  // 本文2カラム（左: AI平易解説3行、右: 推奨アクション）
   const bodyGrid = document.createElement("div");
   bodyGrid.className = "card-body-grid";
 
@@ -658,44 +632,7 @@ function createVulnCard(item) {
   actionText.textContent = item.recommended_action || "最新バージョンの適用要否を確認してください。";
   actionBody.append(actionHeading, actionText);
 
-  const footerActions = document.createElement("div");
-  footerActions.className = "card-footer-actions";
-
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.className = "btn-copy-cw";
-
-  const renderCopyButtonLabel = (copied) => {
-    const icon = createIconSvg(copied ? "check" : "copy");
-    const span = document.createElement("span");
-    span.textContent = copied ? "コピーしました" : "Chatwork報告文をコピー";
-    copyBtn.replaceChildren(icon, span);
-    copyBtn.classList.toggle("is-copied", copied);
-  };
-
-  renderCopyButtonLabel(false);
-
-  let buttonResetTimer = null;
-  copyBtn.addEventListener("click", async () => {
-    const templateText = formatChatworkTemplate(item);
-    try {
-      await copyTextToClipboard(templateText);
-      showToast("Chatwork報告用テンプレートをコピーしました");
-      renderCopyButtonLabel(true);
-      if (buttonResetTimer !== null) {
-        clearTimeout(buttonResetTimer);
-      }
-      buttonResetTimer = window.setTimeout(() => {
-        renderCopyButtonLabel(false);
-        buttonResetTimer = null;
-      }, 2200);
-    } catch (_err) {
-      showToast("クリップボードへのコピーに失敗しました。ブラウザ権限をご確認ください。");
-    }
-  });
-
-  footerActions.append(copyBtn);
-  actionCol.append(actionBody, footerActions);
+  actionCol.append(actionBody);
 
   bodyGrid.append(summaryBox, actionCol);
   card.append(metaRow, titleEl, affectedRow, bodyGrid);
